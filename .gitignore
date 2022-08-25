@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.*venv/
+
+# Development
+.env
+/test/
+**/temp/**
+*.log
+!.gitkeep
+
+# Workspace
+*.code-workspace
+.vscode*/
