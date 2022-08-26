@@ -24,6 +24,16 @@ class BasicCog(commands.Cog, name="Basic"):
         content = f"**[{v}]** Yes, I'm here! Bot latency: **{latency}** ms."
         await ctx.send(content)
 
+    @app_commands.command(name="help", description="Show help message")
+    async def help(self, interaction: Interaction) -> None:
+        # temp, todo in the future
+        await interaction.response.send_message(
+            "The bot doesn't seem to have a help message set up yet for "
+            f"`/help`. In the meantime, use `{self.bot.command_prefix}help`.",
+            ephemeral=True
+        )
+        return
+
 
 async def setup(bot: commands.Bot) -> None:
     """Required entry point for load_extension()."""
