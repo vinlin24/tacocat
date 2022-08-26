@@ -4,10 +4,10 @@ Contains package configuration options, including logger.
 """
 
 import logging
-import os
 
 import discord
 
+from . import utils
 from .utils import BotMode, get_absolute_path
 
 # PROJECT METADATA
@@ -60,7 +60,10 @@ def set_up_logging(bot_mode: BotMode,
         logging.DEBUG if debug_mode else PROGRAM_LOG_LEVEL
     )
     # program_log is now ready for use!
-    # Can be obtained in any module with logging.getLogger(PROJECT_NAME)
+    # Expose it as a program-wide singleton in the utils module so any
+    # module just has to import from utils, which it was probably going
+    # to do anyway
+    utils.log = program_log
     program_log.debug("Program logger initialized.")
 
     # Separate discord.py library logging into its own log

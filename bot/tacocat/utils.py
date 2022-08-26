@@ -3,8 +3,12 @@
 Defines useful constants and helper functions.
 """
 
+import logging
 import os
 from enum import Enum, auto
+
+# Program log singleton, set in config.py
+log: logging.Logger = None  # type: ignore
 
 
 class BotMode(Enum):
