@@ -9,6 +9,9 @@ from datetime import datetime
 
 from discord.ext import commands
 
+MESSAGE_LENGTH_LIMIT = 2000
+"""Default Discord message length limit in characters."""
+
 
 class BotMode(enum.Enum):
     """Enum for the possible modes the bot could be running in.
