@@ -8,7 +8,7 @@ import os
 
 import discord
 
-from .utils import BotMode
+from .utils import BotMode, get_absolute_path
 
 # PROJECT METADATA
 PROJECT_NAME = "tacocat"
@@ -18,12 +18,8 @@ COMMAND_PREFIX = "-"
 GATEWAY_INTENTS = discord.Intents.all()
 
 # LOGGING CONFIGURATION
-PROGRAM_LOG_PATH = os.path.join(
-    os.path.dirname(__file__), "../logs/bot.log"
-)
-DISCORD_LOG_PATH = os.path.join(
-    os.path.dirname(__file__), "../logs/discord.log"
-)
+PROGRAM_LOG_PATH = get_absolute_path(__file__, "../logs/bot.log")
+DISCORD_LOG_PATH = get_absolute_path(__file__, "../logs/discord.log")
 PROGRAM_LOG_FMT = "[%(asctime)s] [%(levelname)-8s] %(filename)s:%(lineno)s: %(message)s"
 PROGRAM_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 PROGRAM_LOG_LEVEL = logging.INFO  # Level to use if not in debug mode
