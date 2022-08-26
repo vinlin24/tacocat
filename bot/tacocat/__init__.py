@@ -5,8 +5,6 @@ Set up the program and expose package namespace.
 
 import os
 
-import dotenv
-
 from .client import MyBot
 from .config import PROJECT_NAME
 from .logger import set_up_logging
@@ -16,13 +14,10 @@ __all__ = (
     "bot",
     "bot_run_kwargs",
     "log",
+    "BotType",
 )
 
 ### SET UP PROGRAM ###
-
-# Load environment variables from .env if running locally
-# Has no effect when running remotely with no .env file
-dotenv.load_dotenv(override=True)
 
 # Reminder: environment variables are always strings
 __version__ = os.environ["BOT_VERSION"]
@@ -54,10 +49,10 @@ bot_run_kwargs = {
 }
 """Keyword arguments to pass to bot.run()."""
 
-# Expose configured log to implementing modules
+# For implementing modules
 
 log = _program_log
-"""Program logger.
+"""Configured program logger.
 
 Do NOT import this into the modules used to initialize it as they would
 deadlock for obvious reasons. These include the package top-level
@@ -67,3 +62,5 @@ modules responsble for initializing the program:
 - logger
 - utils
 """
+
+BotType = MyBot
