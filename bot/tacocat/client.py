@@ -3,23 +3,32 @@
 Defines the bot, handles its initialization, and registers events.
 """
 
-import discord
+import logging
+
 from discord.ext import commands
+
+from .config import COMMAND_PREFIX, GATEWAY_INTENTS, PROJECT_NAME
 
 
 class MyBot(commands.Bot):
+    """Represents the Discord bot client to use in this program."""
+
     def __init__(self, version: str) -> None:
         self._version = version
-        # todo: make this stuff configurable later
-        intents = discord.Intents.all()
-        super().__init__(command_prefix="-",
-                         intents=intents)
+        self._log = logging.getLogger(PROJECT_NAME)
+        super().__init__(command_prefix=COMMAND_PREFIX,
+                         intents=GATEWAY_INTENTS)
 
     @property
     def version(self) -> str:
         """The version string of the bot."""
         return self._version
 
+    @property
+    def log(self) -> logging.Logger:
+        """The program logger."""
+        return self._log
+
     async def on_ready(self) -> None:
         """Event listener for when bot is finished setting up."""
-        print("Bot is ready!")
+        self.log.info("Bot is ready!")

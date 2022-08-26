@@ -3,12 +3,12 @@
 Discord bot runtime entry point.
 """
 
-from tacocat import BOT_TOKEN, bot
+from tacocat import bot, bot_run_kwargs
 
 
 def main() -> None:
     """Main driver function."""
-    bot.run(BOT_TOKEN)
+    bot.run(**bot_run_kwargs)  # Here we go!
 
 
 if __name__ == "__main__":
