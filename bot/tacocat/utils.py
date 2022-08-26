@@ -3,9 +3,9 @@
 Defines useful constants and helper functions.
 """
 
+import enum
 import logging
 import os
-from enum import Enum, auto
 
 import discord
 
@@ -13,7 +13,7 @@ log: logging.Logger = None  # type: ignore
 """Program singleton log, set in config.py."""
 
 
-class BotMode(Enum):
+class BotMode(enum.Enum):
     """Enum for the possible modes the bot could be running in.
 
     LOCAL means the bot is running from a local machine. For the most
@@ -21,8 +21,8 @@ class BotMode(Enum):
     REMOTE means the bot is running from a remote host. For the most
     part, this is synonymous with PRODUCTION mode.
     """
-    LOCAL = auto()
-    REMOTE = auto()
+    LOCAL = "LOCAL"
+    REMOTE = "REMOTE"
 
 
 def get_absolute_path(module_path: str, relative_path: str) -> str:
@@ -53,7 +53,10 @@ def detail_call(i: discord.Interaction) -> str:
     Returns:
         str: A string that can be directly passed to log.debug(). It
         details the user, channel, guild, and name of called command to
-        the best of ability.
+        the best of ability. Example:
+        ```
+        vinlin#5616 @ #bot-spam @ "Taco Notes" called 'ping'.
+        ```
     """
     channel = "<Unknown>" if i.channel is None else f"#{i.channel}"
     guild = "<Unknown>" if i.guild is None else f"\"{i.guild}\""
