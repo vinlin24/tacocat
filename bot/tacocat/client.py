@@ -12,7 +12,7 @@ import discord
 from discord.ext import commands
 
 from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
-                     GATEWAY_INTENTS, LOG_ALERT_LEVEL, PROGRAM_LOG_DATEFMT)
+                     GATEWAY_INTENTS, LOG_ALERT_LEVEL)
 from .utils import BotMode, get_absolute_path, render_timestamp
 
 
@@ -185,14 +185,14 @@ async def _load_bot_extensions(bot: MyBot) -> None:
                 f"subdirectory, but none was found in {dirname!r}."
             )
 
-        # Status report
-        if num_success == num_total:
-            bot.log.info(
-                "Successfully loaded all cogs as extensions "
-                f"({num_success} success/{num_total} total)."
-            )
-        else:
-            bot.log.critical(
-                "Failed to load all cogs as extensions "
-                f"({num_success} success/{num_total} total)."
-            )
+    # Status report
+    if num_success == num_total:
+        bot.log.debug(
+            "Successfully loaded all cogs as extensions "
+            f"({num_success} success/{num_total} total)."
+        )
+    else:
+        bot.log.critical(
+            "Failed to load all cogs as extensions "
+            f"({num_success} success/{num_total} total)."
+        )
