@@ -5,6 +5,7 @@ Defines useful constants and helper functions.
 
 import enum
 import os
+from datetime import datetime
 
 from discord.ext import commands
 
@@ -66,3 +67,42 @@ def detail_call(ctx: commands.Context) -> str:
 
     method = "prefix" if ctx.interaction is None else "slash"
     return f"{context} called {name} ({method})."
+
+
+class TimestampFormat(enum.Enum):
+    """Enum for the possible formats of a Discord rendered timestamp.
+
+    A reference of the codes and their previews can be found here:
+    https://gist.github.com/LeviSnoot/d9147767abeef2f770e9ddcd91eb85aa
+    """
+    DEFAULT = None
+    SHORT_TIME = "t"
+    LONG_TIME = "T"
+    SHORT_DATE = "d"
+    LONG_DATE = "D"
+    SHORT_DATETIME = "f"
+    LONG_DATETIME = "F"
+    RELATIVE = "R"
+
+
+def render_timestamp(dt: datetime,
+                     format: TimestampFormat = TimestampFormat.DEFAULT
+                     ) -> str:
+    """Render a Discord timestamp given a datetime.
+
+    Args:
+        dt (datetime.datetime): Datetime to render. 
+        format (TimestampFormat, optional): Format code to use.
+        Defaults to TimestampFormat.DEFAULT, which uses Discord's
+        default formatting. A reference of formats and their previews
+        can be found here:
+        https://gist.github.com/LeviSnoot/d9147767abeef2f770e9ddcd91eb85aa
+
+    Returns:
+        str: A string that will be rendered in Discord messages as a
+        timestamp.
+    """
+    # Discord only accepts int
+    timestamp = round(dt.timestamp())
+    suffix = "" if format is TimestampFormat.DEFAULT else f":{format.value}"
+    return f"<t:{timestamp}{suffix}>"

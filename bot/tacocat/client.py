@@ -5,12 +5,15 @@ Defines the bot, handles its initialization, and registers events.
 
 import logging
 import os
+from datetime import datetime
+from typing import Any
 
+import discord
 from discord.ext import commands
 
-from .config import (COMMAND_PREFIX, DEBUG_GUILD, GATEWAY_INTENTS,
-                     LOG_ALERT_LEVEL)
-from .utils import BotMode, get_absolute_path
+from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
+                     GATEWAY_INTENTS, LOG_ALERT_LEVEL, PROGRAM_LOG_DATEFMT)
+from .utils import BotMode, get_absolute_path, render_timestamp
 
 
 class MyBot(commands.Bot):
@@ -83,6 +86,53 @@ class MyBot(commands.Bot):
     async def on_ready(self) -> None:
         """Event listener for when bot is finished setting up."""
         self.log.log(LOG_ALERT_LEVEL, "Bot is ready!")
+        # Try to notify developer for more convenient testing
+        if self.debug_mode:
+            timestamp = render_timestamp(datetime.now())
+            content = (
+                f"{timestamp}@`on_ready`: Running version **{self.version}** "
+                f"in **{self.bot_mode.name}** mode."
+            )
+            try:
+                await self.send_to_dev_dm(content)
+            except discord.DiscordException:
+                self.log.exception("Could not send message to DM.")
+
+    async def send_to_dev_dm(self,
+                             content: str | None = None,
+                             **send_kwargs: Any
+                             ) -> discord.Message:
+        """Send a message to the developer's DM channel.
+
+        The documentation for the arguments can be found here:
+        https://discordpy.readthedocs.io/en/latest/api.html#discord.DMChannel.send
+
+        Args:
+            content (str | None, optional): Content to send. Argument
+            usage is the same as that in the documentation for
+            DMChannel.send(). Defaults to None.
+            **send_kwargs (Any): Keyword arguments identical to those
+            for DMChannel.send().
+
+        Raises:
+            discord.DiscordException: An unexpected error where the
+            User object for the developer couldn't be found with
+            Bot.get_user().
+
+        Returns:
+            discord.Message: The message sent, if successful.
+        """
+        user = self.get_user(DEVELOPER_USER_ID)
+        # User not found somehow
+        if user is None:
+            raise discord.DiscordException(
+                "Failed to get the User object for developer "
+                f"(id={DEVELOPER_USER_ID})."
+            )
+
+        # Get the my DM, creating it if it doesn't exist yet
+        dm = user.dm_channel or await user.create_dm()
+        return await dm.send(content, **send_kwargs)
 
 
 async def _load_bot_extensions(bot: MyBot) -> None:
