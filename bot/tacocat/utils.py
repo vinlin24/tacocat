@@ -8,6 +8,7 @@ import logging
 import os
 
 import discord
+from discord.ext import commands
 
 log: logging.Logger = None  # type: ignore
 """Program singleton log, set in config.py."""
@@ -43,26 +44,27 @@ def get_absolute_path(module_path: str, relative_path: str) -> str:
     )
 
 
-def detail_call(i: discord.Interaction) -> str:
-    """Expand the context of the interaction for debugging lines.
+def detail_call(ctx: commands.Context) -> str:
+    """Detail the context of a command call for debugging lines.
 
     Args:
-        i (discord.Interaction): Interaction associated with the
-        application command that was invoked.
+        ctx (Context): Context of the commmand that was invoked.
 
     Returns:
         str: A string that can be directly passed to log.debug(). It
         details the user, channel, guild, and name of called command to
-        the best of ability. Example:
+        the best of ability. Also specify if the command was invoked
+        by prefix or slash slash command. Example:
         ```
-        vinlin#5616 @ #bot-spam @ "Taco Notes" called 'ping'.
+        vinlin#5616 @ #bot-spam @ "Taco Notes" called 'ping' (slash).
         ```
     """
-    channel = "<Unknown>" if i.channel is None else f"#{i.channel}"
-    guild = "<Unknown>" if i.guild is None else f"\"{i.guild}\""
-    context = f"{i.user} @ {channel} @ {guild}"
-    try:
-        name = repr(i.command.name)  # type: ignore
-    except AttributeError:
-        name = "<Unknown>"
-    return f"{context} called {name}."
+    # ctx.guild is None if not available (DMs)
+    guild = "<DM>" if ctx.guild is None else f"\"{ctx.guild}\""
+    context = f"{ctx.author} @ #{ctx.channel} @ {guild}"
+
+    # ctx.command can be None somehow (some app command stuff probably)
+    name = "<Unknown>" if ctx.command is None else repr(ctx.command.name)
+    method = "prefix" if ctx.interaction is None else "slash"
+
+    return f"{context} called {name} ({method})."

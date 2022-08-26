@@ -43,7 +43,7 @@ class MyBot(commands.Bot):
 
     @property
     def debug_mode(self) -> bool:
-        """Whether program is running in debug mode. Can be modified."""
+        """If running at debug verbosity. Can be modified at runtime."""
         return self._debug_mode
 
     @debug_mode.setter
@@ -51,6 +51,7 @@ class MyBot(commands.Bot):
         self._debug_mode = new_mode
 
     async def setup_hook(self) -> None:
+        """Perfom async setup after bot login but before connection."""
         await _load_bot_extensions(self)
 
         # Sync commands globally if running remotely (takes hours)
