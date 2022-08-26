@@ -24,10 +24,12 @@ _debug_mode = os.environ["DEBUG_MODE"].lower() == "true"
 _program_log, _discord_handler = set_up_logging(_bot_mode, _debug_mode)
 
 # Variables to expose to main process
-bot = MyBot(os.environ["BOT_VERSION"])
+bot = MyBot(os.environ["BOT_VERSION"], _bot_mode, _debug_mode)
 bot_run_kwargs = {
     "token": os.environ["BOT_TOKEN"],
     "log_handler": _discord_handler
 }
 
-_program_log.info(f"Running program in {_bot_mode}, DEBUG_MODE={_debug_mode}.")
+_program_log.info(
+    f"Running program in {_bot_mode.name} mode, DEBUG_MODE={_debug_mode}."
+)

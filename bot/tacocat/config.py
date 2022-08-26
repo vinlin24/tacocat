@@ -25,6 +25,9 @@ PROGRAM_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 PROGRAM_LOG_LEVEL = logging.INFO  # Level to use if not in debug mode
 DISCORD_LOG_LEVEL = logging.WARNING  # Level to use if not in debug mode
 
+# DEVELOPER CONFIGURATION
+DEBUG_GUILD = discord.Object(id=874194236675866684)  # Taco Notes
+
 
 def set_up_logging(bot_mode: BotMode,
                    debug_mode: bool

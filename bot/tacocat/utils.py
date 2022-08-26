@@ -7,8 +7,10 @@ import logging
 import os
 from enum import Enum, auto
 
-# Program log singleton, set in config.py
+import discord
+
 log: logging.Logger = None  # type: ignore
+"""Program singleton log, set in config.py."""
 
 
 class BotMode(Enum):
@@ -39,3 +41,25 @@ def get_absolute_path(module_path: str, relative_path: str) -> str:
     return os.path.join(
         os.path.dirname(module_path), relative_path
     )
+
+
+def detail_call(i: discord.Interaction) -> str:
+    """Expand the context of the interaction for debugging lines.
+
+    Args:
+        i (discord.Interaction): Interaction associated with the
+        application command that was invoked.
+
+    Returns:
+        str: A string that can be directly passed to log.debug(). It
+        details the user, channel, guild, and name of called command to
+        the best of ability.
+    """
+    channel = "<Unknown>" if i.channel is None else f"#{i.channel}"
+    guild = "<Unknown>" if i.guild is None else f"\"{i.guild}\""
+    context = f"{i.user} @ {channel} @ {guild}"
+    try:
+        name = repr(i.command.name)  # type: ignore
+    except AttributeError:
+        name = "<Unknown>"
+    return f"{context} called {name}."
