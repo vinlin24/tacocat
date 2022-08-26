@@ -13,6 +13,7 @@ from discord.ext import commands
 
 from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
                      GATEWAY_INTENTS, LOG_ALERT_LEVEL)
+from .exceptions import UnexpectedError
 from .utils import BotMode, get_absolute_path, render_timestamp
 
 
@@ -125,7 +126,7 @@ class MyBot(commands.Bot):
         user = self.get_user(DEVELOPER_USER_ID)
         # User not found somehow
         if user is None:
-            raise discord.DiscordException(
+            raise UnexpectedError(
                 "Failed to get the User object for developer "
                 f"(id={DEVELOPER_USER_ID})."
             )
