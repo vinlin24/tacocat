@@ -43,8 +43,11 @@ def get_absolute_path(module_path: str, relative_path: str) -> str:
 def detail_call(ctx: commands.Context) -> str:
     """Detail the context of a command call for debugging lines.
 
-    Example string:
-    vinlin#5616 @ #bot-spam @ "Taco Notes" called Basic:ping (slash).
+    Example string for invoking /logs bot in the cog named Developer:
+    vinlin#5616 @ #bot-spam @ "Taco Notes" called Developer::logs:bot (slash).
+
+    This function does not support command arguments yet, but might if
+    it would aid debugging.
 
     Args:
         ctx (commands.Context): Context of the commmand that was
@@ -61,9 +64,25 @@ def detail_call(ctx: commands.Context) -> str:
     context = f"{ctx.author} @ #{ctx.channel} @ {guild}"
 
     # ctx.command can be None somehow (some app command stuff probably)
-    name = "<Unknown>" if ctx.command is None else ctx.command.name
+    if ctx.command is None:
+        name = "<Unknown>"
+    else:
+        name = ctx.command.name
+        # Get full name (parent groups)
+        group = ctx.command.parent
+        if group is not None:
+            try:
+                group_full: str = group.qualified_name  # type: ignore
+                # Use a single : to distinguish from cog name
+                name = ":".join(group_full.split()) + ":" + name
+            # I don't know how this would happen
+            except AttributeError:
+                name = f"<Unknown>:{name}"
+
     if ctx.cog is not None:
-        name = f"{ctx.cog.qualified_name}:{name}"
+        # Use a double :: to distinguish from full group name
+        # This way, it's also obvious if a command is not part of any cog
+        name = f"{ctx.cog.qualified_name}::{name}"
 
     method = "prefix" if ctx.interaction is None else "slash"
     return f"{context} called {name} ({method})."
