@@ -9,20 +9,32 @@ import os
 from discord.ext import commands
 
 from .config import (COMMAND_PREFIX, DEBUG_GUILD, GATEWAY_INTENTS,
-                     PROJECT_NAME, BotMode)
-from .utils import get_absolute_path
+                     LOG_ALERT_LEVEL)
+from .utils import BotMode, get_absolute_path
 
 
 class MyBot(commands.Bot):
     """Represents the Discord bot client to use in this program."""
 
-    def __init__(self, version: str, bot_mode: BotMode, debug_mode: bool) -> None:
+    def __init__(self,
+                 version: str,
+                 bot_mode: BotMode,
+                 debug_mode: bool,
+                 log: logging.Logger) -> None:
+        """Initialize the bot client to use in this program.
+
+        Args:
+            version (str): Bot version string.
+            bot_mode (BotMode): Bot mode, LOCAL or REMOTE.
+            debug_mode (bool): Program verbose option.
+            log (logging.Logger): Program logger.
+        """
+        # Custom properties
         self._version = version
         self._bot_mode = bot_mode
         self._debug_mode = debug_mode
-        # utils.log isn't set up yet at the time it's imported yet
-        # You should probably rethink this initialization process
-        self._log = logging.getLogger(PROJECT_NAME)
+        self._log = log
+
         super().__init__(command_prefix=COMMAND_PREFIX,
                          intents=GATEWAY_INTENTS)
 
@@ -70,7 +82,7 @@ class MyBot(commands.Bot):
 
     async def on_ready(self) -> None:
         """Event listener for when bot is finished setting up."""
-        self.log.info("Bot is ready!")
+        self.log.log(LOG_ALERT_LEVEL, "Bot is ready!")
 
 
 async def _load_bot_extensions(bot: MyBot) -> None:
