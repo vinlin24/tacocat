@@ -10,6 +10,7 @@ from typing import Any
 
 import discord
 from discord.ext import commands
+from discord.ext.commands import CommandError, Context
 
 from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
                      GATEWAY_INTENTS, LOG_ALERT_LEVEL)
@@ -98,6 +99,13 @@ class MyBot(commands.Bot):
                 await self.send_to_dev_dm(content)
             except discord.DiscordException:
                 self.log.exception("Could not send message to DM.")
+
+    async def on_command_error(self, ctx: Context, exc: CommandError, /) -> None:
+        """Handler for command errors."""
+        # Completely ignore unrecognized text commands
+        if isinstance(exc, commands.CommandNotFound):
+            return
+        return await super().on_command_error(ctx, exc)
 
     async def send_to_dev_dm(self,
                              content: str | None = None,
