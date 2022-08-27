@@ -11,7 +11,8 @@ from discord.ext.commands import Context
 
 from ... import BotType, log
 from ...utils import detail_call
-from .logs import LOG_CHOICES, send_log_content
+from .logs_cmd import (FILTER_CHOICES, LEVEL_CHOICES, LOG_CHOICES, Constraints,
+                       send_log_content)
 
 
 class DeveloperCog(commands.Cog, name="Developer"):
@@ -21,11 +22,51 @@ class DeveloperCog(commands.Cog, name="Developer"):
         self.bot = bot
 
     @commands.hybrid_command(name="logs", help="View program logs", hidden=True)
-    @app_commands.rename(log_choice="log")
-    @app_commands.choices(log_choice=LOG_CHOICES)
-    async def view_logs(self, ctx: Context, log_choice: Choice[str]) -> None:
+    @app_commands.describe(log_choice="Log file to view",
+                           filter_choice="Severity filter option",
+                           level_choice="Log level to filter by",
+                           show_msg="Show log for everyone to see")
+    @app_commands.rename(log_choice="log",
+                         filter_choice="filter",
+                         level_choice="level",
+                         show_msg="show")
+    @app_commands.choices(log_choice=LOG_CHOICES,
+                          filter_choice=FILTER_CHOICES,
+                          level_choice=LEVEL_CHOICES)
+    async def view_logs(self,
+                        ctx: Context,
+                        log_choice: Choice[int],
+                        filter_choice: Choice[int] | None = None,
+                        level_choice: Choice[int] | None = None,
+                        show_msg: bool = False
+                        ) -> None:
         log.debug(detail_call(ctx))
-        await send_log_content(ctx, log_choice.value)
+
+        # Evaluate defaults for optional Choices
+
+        # If filter is not provided or it's provided without a level,
+        # just don't filter at all
+        if level_choice is None:
+            constraint = None
+            level = None
+
+        # If level is provided without a filter, assume the user meant to
+        # filter that level exactly
+        elif filter_choice is None:
+            constraint = Constraints.EXACTLY.value
+            level = level_choice.value
+
+        # Otherwise there's no ambiguity
+        else:
+            constraint = filter_choice.value
+            level = level_choice.value
+
+        # Pass to backend
+        await send_log_content(ctx,
+                               log_choice=log_choice.value,
+                               constraint_choice=constraint,
+                               level_choice=level,
+                               ephemeral=not show_msg)
 
 
 async def setup(bot: BotType) -> None:
