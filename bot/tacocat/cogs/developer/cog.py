@@ -21,7 +21,7 @@ class DeveloperCog(commands.Cog, name="Developer"):
     def __init__(self, bot: BotType) -> None:
         self.bot = bot
 
-    @commands.hybrid_command(name="logs", help="View program logs", hidden=True)
+    @app_commands.command(name="logs", description="View program logs")
     @app_commands.describe(log_choice="Log file to view",
                            filter_choice="Severity filter option",
                            level_choice="Log level to filter by",
@@ -34,14 +34,12 @@ class DeveloperCog(commands.Cog, name="Developer"):
                           filter_choice=FILTER_CHOICES,
                           level_choice=LEVEL_CHOICES)
     async def view_logs(self,
-                        ctx: Context,
+                        interaction: Interaction,
                         log_choice: Choice[int],
                         filter_choice: Choice[int] | None = None,
                         level_choice: Choice[int] | None = None,
                         show_msg: bool = False
                         ) -> None:
-        log.debug(detail_call(ctx))
-
         # Evaluate defaults for optional Choices
 
         # If filter is not provided or it's provided without a level,
@@ -62,7 +60,7 @@ class DeveloperCog(commands.Cog, name="Developer"):
             level = level_choice.value
 
         # Pass to backend
-        await send_log_content(ctx,
+        await send_log_content(interaction,
                                log_choice=log_choice.value,
                                constraint_choice=constraint,
                                level_choice=level,

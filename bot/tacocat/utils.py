@@ -44,7 +44,7 @@ def get_absolute_path(module_path: str, relative_path: str) -> str:
 
 
 def detail_call(ctx: commands.Context) -> str:
-    """Detail the context of a command call for debugging lines.
+    """Detail the context of a text/hybrid command call for debugging.
 
     Example string for invoking /logs bot in the cog named Developer:
     vinlin#5616 @ #bot-spam @ "Taco Notes" called Developer::logs:bot (slash).
@@ -54,7 +54,9 @@ def detail_call(ctx: commands.Context) -> str:
 
     Args:
         ctx (commands.Context): Context of the commmand that was
-        invoked.
+        invoked. Since application-only commands pass an Interaction
+        object instead of Context, this function only works with text
+        or hybrid commands.
 
     Returns:
         str: A string that can be directly passed to log.debug(). It

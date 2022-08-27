@@ -10,8 +10,8 @@ import re
 from typing import Callable
 
 import discord
+from discord import Interaction
 from discord.app_commands import Choice
-from discord.ext.commands import Context
 
 from ... import log
 from ...config import (DISCORD_LOG_PATH, LOG_ALERT_LEVEL, PROGRAM_LOG_FMT,
@@ -164,12 +164,12 @@ def _get_log_path(log_choice: int) -> str:
     )
 
 
-async def send_log_content(ctx: Context,
+async def send_log_content(interaction: Interaction,
                            log_choice: int,
                            constraint_choice: int | None,
                            level_choice: int | None,
                            ephemeral: bool
-                           ) -> discord.Message:
+                           ) -> None:
     """Send the contents of a log file.
 
     Backend function for the view_logs callback of the /logs command.
@@ -219,11 +219,14 @@ async def send_log_content(ctx: Context,
             fp=log_path,
             filename=os.path.basename(log_path)
         )
-        return await ctx.send(file=file, ephemeral=ephemeral)
+        return await interaction.response.send_message(
+            file=file, ephemeral=ephemeral)
 
     # If the content is empty or just whitespace
     if len(content) == 0 or content.isspace():
-        return await ctx.send("Nothing to send!", ephemeral=ephemeral)
+        return await interaction.response.send_message(
+            "Nothing to send!", ephemeral=ephemeral)
 
     # Enclose content in code fence markup
-    return await ctx.send(f"```{content}```", ephemeral=ephemeral)
+    return await interaction.response.send_message(
+        f"```{content}```", ephemeral=ephemeral)
