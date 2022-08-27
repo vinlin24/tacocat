@@ -10,7 +10,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 from ... import BotType, log
-from ...utils import detail_call
+from ...utils import ErrorEmbed, detail_call, is_dev, is_superuser
 from .logs_cmd import (FILTER_CHOICES, LEVEL_CHOICES, LOG_CHOICES, Constraints,
                        send_log_content)
 
@@ -21,7 +21,8 @@ class DeveloperCog(commands.Cog, name="Developer"):
     def __init__(self, bot: BotType) -> None:
         self.bot = bot
 
-    @app_commands.command(name="logs", description="View program logs")
+    @is_superuser()
+    @app_commands.command(name="logs", description="(SUPER) View program logs")
     @app_commands.describe(log_choice="Log file to view",
                            filter_choice="Severity filter option",
                            level_choice="Log level to filter by",
@@ -65,6 +66,21 @@ class DeveloperCog(commands.Cog, name="Developer"):
                                constraint_choice=constraint,
                                level_choice=level,
                                ephemeral=not show_msg)
+
+    @view_logs.error
+    async def view_logs_error(self,
+                              interaction: Interaction,
+                              exc: app_commands.AppCommandError
+                              ) -> None:
+        if isinstance(exc, app_commands.CheckFailure):
+            log.warning(
+                f"Unauthorized user {interaction.user} attempted to use the "
+                f"/logs command. Check failure prevented this."
+            )
+            embed = ErrorEmbed(
+                "Only select superusers can view the program logs.")
+            await interaction.response.send_message(embed=embed,
+                                                    ephemeral=True)
 
 
 async def setup(bot: BotType) -> None:

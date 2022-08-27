@@ -9,13 +9,14 @@ from datetime import datetime
 from typing import Any
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import CommandError, Context
 
 from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
                      GATEWAY_INTENTS, LOG_ALERT_LEVEL, AbsPath)
 from .exceptions import UnexpectedError
-from .utils import BotMode, render_timestamp
+from .utils import BotMode, ErrorEmbed, detail_call, render_timestamp
 
 
 class MyBot(commands.Bot):
@@ -105,6 +106,20 @@ class MyBot(commands.Bot):
         # Completely ignore unrecognized text commands
         if isinstance(exc, commands.CommandNotFound):
             return
+
+        # TODO: check more specific types of CheckFailure here...
+        # Also figure out what the equivalent is for app_commands...
+
+        # Generic check failed usually means the caller is unauthorized
+        if isinstance(exc, commands.CheckFailure):
+            self.log.info(f"Check failed when {detail_call(ctx)}")
+            embed = ErrorEmbed("You are not allowed to run this command.")
+            await ctx.send(embed=embed)
+            return
+
+        # If I missed something, be sure to let me know
+        # DO NOT LET UNACCOUNTED EXCEPTIONS PASS SILENTLY
+        self.log.critical("An unaccounted command error occurred.")
         return await super().on_command_error(ctx, exc)
 
     async def send_to_dev_dm(self,
