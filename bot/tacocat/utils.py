@@ -4,7 +4,6 @@ Defines useful constants and helper functions.
 """
 
 import enum
-import os
 from datetime import datetime
 
 from discord.ext import commands
@@ -23,24 +22,6 @@ class BotMode(enum.Enum):
     """
     LOCAL = "LOCAL"
     REMOTE = "REMOTE"
-
-
-def get_absolute_path(module_path: str, relative_path: str) -> str:
-    """Get the absolute path from a relative path w.r.t. a module.
-
-    Args:
-        module_path (str): The `__file__` of the module this function
-        is being called from.
-        relative_path (str): The relative path from the calling module
-        for which an absolute path should be returned.
-
-    Returns:
-        str: The absolute path to the location referenced by
-        relative_path.
-    """
-    return os.path.join(
-        os.path.dirname(module_path), relative_path
-    )
 
 
 def detail_call(ctx: commands.Context) -> str:

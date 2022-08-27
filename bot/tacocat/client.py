@@ -13,9 +13,9 @@ from discord.ext import commands
 from discord.ext.commands import CommandError, Context
 
 from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
-                     GATEWAY_INTENTS, LOG_ALERT_LEVEL)
+                     GATEWAY_INTENTS, LOG_ALERT_LEVEL, AbsPath)
 from .exceptions import UnexpectedError
-from .utils import BotMode, get_absolute_path, render_timestamp
+from .utils import BotMode, render_timestamp
 
 
 class MyBot(commands.Bot):
@@ -155,7 +155,7 @@ async def _load_bot_extensions(bot: MyBot) -> None:
     Args:
         bot (MyBot): The bot instance.
     """
-    cogs_path = get_absolute_path(__file__, "cogs/")
+    cogs_path = AbsPath("cogs/")
 
     num_success = 0
     num_total = 0
