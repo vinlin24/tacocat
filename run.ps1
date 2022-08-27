@@ -2,12 +2,29 @@
 Script for automating common tasks.
 #>
 
+param (
+    [Parameter()]
+    [string] $TaskName
+)
+
+$SCRIPT_NAME = "run.ps1"
 $ROOT_NAME = "tacocat"
+$ROOT_PARENT_NAME = "repos"
 
 # Assert that script is being run at project root
-$currentDir = Split-Path -Path (Get-Location) -Leaf
-if ($currentDir -ne $ROOT_NAME) {
+$currentDir = Split-Path (Get-Location) -Leaf
+$dirPart = Split-Path (Get-Location) -Parent
+$parentDir = Split-Path $dirPart -Leaf
+if ($currentDir -ne $ROOT_NAME -or $parentDir -ne $ROOT_PARENT_NAME) {
     Write-Host "Script must be run at project root, aborted." -ForegroundColor Red
+    exit 1
+}
+
+$VENV_PATH = Join-Path (Get-Location) ".venv"
+
+# Assert that script is being run within project's venv
+if ($env:VIRTUAL_ENV -ne $VENV_PATH) {
+    Write-Host "Script must be run within project's venv, aborted." -ForegroundColor Red
     exit 1
 }
 
@@ -43,19 +60,51 @@ function Show-Window {
     $null = (New-Object -ComObject WScript.Shell).AppActivate($procId)
 }
 
+<# Run Discord bot #>
+function Start-BotScript {
+    Write-Host "TASK: Running bot script..." -ForegroundColor Yellow
+    try {
+        # Try moving focus to Discord to prepare for testing
+        Show-Window "Discord"
+        # Bot runtime entry point
+        python bot/main.py
+    }
+    finally {
+        # Cleanup
+        Get-ChildItem -Recurse -Filter "__pycache__" | Remove-Item -Recurse
+        # Return to VS Code
+        Show-Window "Code"
+    }
+}
+
+<# Run pre-commit checklist #>
+function Start-CommitCheck {
+    Write-Host "TASK: Running pre-commit checklist..." -ForegroundColor Yellow
+    # Update requirements
+    try {
+        pip freeze | Out-File -Encoding utf8 "requirements.txt" 
+        Write-Host "Updated requirements.txt with state of current venv."
+    }
+    catch {
+        Write-Host "Couldn't complete checklist." -ForegroundColor Red
+    }
+}
+
 <# -------------------- MAIN PROCESS HERE -------------------- #>
 
-try {
-    # Try moving focus to Discord to prepare for testing
-    Show-Window "Discord"
-    # Bot runtime entry point
-    python bot/main.py
-}
-finally {
-    # Cleanup
-    Get-ChildItem -Recurse -Filter "__pycache__" | Remove-Item -Recurse
-    # Return to VS Code
-    Show-Window "Code"
+# Determine which task caller wants to run
+switch ($TaskName) {
+    "" { $taskFunction = "Start-BotScript" }
+    "Run" { $taskFunction = "Start-BotScript" }
+    "Commit" { $taskFunction = "Start-CommitCheck" }
+    default {
+        Write-Host "Unrecognized task name '$TaskName', aborted." -ForegroundColor Red
+        exit 1
+    }
 }
 
+# Run the task
+& $taskFunction
+
+Write-Host "Finished running $SCRIPT_NAME." -ForegroundColor Green
 exit 0
