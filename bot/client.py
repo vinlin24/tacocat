@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import Any
 
 import discord
-from discord import app_commands
 from discord.ext import commands
-from discord.ext.commands import CommandError, Context
+from discord.ext.commands import (CheckFailure, CommandError, CommandNotFound,
+                                  Context)
 
 from . import config
 from .config import (BOT_MODE, COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
@@ -82,20 +82,20 @@ class MyBot(commands.Bot):
             )
             try:
                 await self.send_to_dev_dm(content)
-            except discord.DiscordException:
+            except UnexpectedError:
                 log.exception("Could not send message to DM.")
 
     async def on_command_error(self, ctx: Context, exc: CommandError, /) -> None:
         """Handler for command errors."""
         # Completely ignore unrecognized text commands
-        if isinstance(exc, commands.CommandNotFound):
+        if isinstance(exc, CommandNotFound):
             return
 
         # TODO: check more specific types of CheckFailure here...
         # Also figure out what the equivalent is for app_commands...
 
         # Generic check failed usually means the caller is unauthorized
-        if isinstance(exc, commands.CheckFailure):
+        if isinstance(exc, CheckFailure):
             log.info(f"Check failed when {detail_call(ctx)}")
             embed = ErrorEmbed("You are not allowed to run this command.")
             await ctx.send(embed=embed)
@@ -123,9 +123,8 @@ class MyBot(commands.Bot):
             for DMChannel.send().
 
         Raises:
-            discord.DiscordException: An unexpected error where the
-            User object for the developer couldn't be found with
-            Bot.get_user().
+            UnexpectedError: An unexpected error where the User object
+            for the developer couldn't be found with Bot.get_user().
 
         Returns:
             discord.Message: The message sent, if successful.
