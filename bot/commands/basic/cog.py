@@ -7,14 +7,15 @@ from discord import Interaction, app_commands
 from discord.ext import commands
 from discord.ext.commands import Context
 
-from ... import BotType, log
+from ...client import MyBot
+from ...logger import log
 from ...utils import detail_call
 
 
 class BasicCog(commands.Cog, name="Basic"):
     """Basic sanity-check commands that every bot should have."""
 
-    def __init__(self, bot: BotType) -> None:
+    def __init__(self, bot: MyBot) -> None:
         self.bot = bot
 
     @commands.hybrid_command(name="ping", help="Check bot version and latency")
@@ -36,6 +37,6 @@ class BasicCog(commands.Cog, name="Basic"):
         return
 
 
-async def setup(bot: BotType) -> None:
+async def setup(bot: MyBot) -> None:
     """Required entry point for load_extension()."""
     await bot.add_cog(BasicCog(bot))

@@ -9,7 +9,8 @@ from discord.app_commands import Choice
 from discord.ext import commands
 from discord.ext.commands import Context
 
-from ... import BotType, log
+from ...client import MyBot
+from ...logger import log
 from ...utils import ErrorEmbed, detail_call, is_dev, is_superuser
 from .logs_cmd import (FILTER_CHOICES, LEVEL_CHOICES, LOG_CHOICES, Constraints,
                        send_log_content)
@@ -18,7 +19,7 @@ from .logs_cmd import (FILTER_CHOICES, LEVEL_CHOICES, LOG_CHOICES, Constraints,
 class DeveloperCog(commands.Cog, name="Developer"):
     """Commands to help in development, not intended for general use."""
 
-    def __init__(self, bot: BotType) -> None:
+    def __init__(self, bot: MyBot) -> None:
         self.bot = bot
 
     @is_superuser()
@@ -83,6 +84,6 @@ class DeveloperCog(commands.Cog, name="Developer"):
                                                     ephemeral=True)
 
 
-async def setup(bot: BotType) -> None:
+async def setup(bot: MyBot) -> None:
     """Required entry point for load_extension()."""
     await bot.add_cog(DeveloperCog(bot))

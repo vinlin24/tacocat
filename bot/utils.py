@@ -5,7 +5,7 @@ Defines useful constants, factories, and helper functions.
 
 import enum
 from datetime import datetime
-from typing import Callable, Literal
+from typing import Callable
 
 import discord
 from discord import Interaction, app_commands
@@ -15,18 +15,6 @@ from .config import DEVELOPER_USER_ID, SUPERUSER_USER_IDS
 
 MESSAGE_LENGTH_LIMIT = 2000
 """Default Discord message length limit in characters."""
-
-
-class BotMode(enum.Enum):
-    """Enum for the possible modes the bot could be running in.
-
-    LOCAL means the bot is running from a local machine. For the most
-    part, this is synonymous with DEVELOPMENT mode.
-    REMOTE means the bot is running from a remote host. For the most
-    part, this is synonymous with PRODUCTION mode.
-    """
-    LOCAL = "LOCAL"
-    REMOTE = "REMOTE"
 
 
 def detail_call(ctx: commands.Context) -> str:

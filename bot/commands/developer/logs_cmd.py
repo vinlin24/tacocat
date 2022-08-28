@@ -13,10 +13,10 @@ import discord
 from discord import Interaction
 from discord.app_commands import Choice
 
-from ... import log
 from ...config import (DISCORD_LOG_PATH, LOG_ALERT_LEVEL, PROGRAM_LOG_FMT,
                        PROGRAM_LOG_PATH, PROJECT_NAME)
 from ...exceptions import InvariantError
+from ...logger import log
 from ...utils import MESSAGE_LENGTH_LIMIT
 
 DISCORD_LOG_FMT = "[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s"

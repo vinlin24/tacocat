@@ -3,7 +3,6 @@
 Defines the bot, handles its initialization, and registers events.
 """
 
-import logging
 import os
 from datetime import datetime
 from typing import Any
@@ -13,33 +12,23 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import CommandError, Context
 
-from .config import (COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
-                     GATEWAY_INTENTS, LOG_ALERT_LEVEL, AbsPath)
+from . import config
+from .config import (BOT_MODE, COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
+                     GATEWAY_INTENTS, LOG_ALERT_LEVEL, AbsPath, BotMode,
+                     __version__)
 from .exceptions import UnexpectedError
-from .utils import BotMode, ErrorEmbed, detail_call, render_timestamp
+from .logger import log
+from .utils import ErrorEmbed, detail_call, render_timestamp
 
 
 class MyBot(commands.Bot):
     """Represents the Discord bot client to use in this program."""
 
-    def __init__(self,
-                 version: str,
-                 bot_mode: BotMode,
-                 debug_mode: bool,
-                 log: logging.Logger) -> None:
-        """Initialize the bot client to use in this program.
-
-        Args:
-            version (str): Bot version string.
-            bot_mode (BotMode): Bot mode, LOCAL or REMOTE.
-            debug_mode (bool): Program verbose option.
-            log (logging.Logger): Program logger.
-        """
+    def __init__(self) -> None:
+        """Initialize the bot client to use in this program."""
         # Custom properties
-        self._version = version
-        self._bot_mode = bot_mode
-        self._debug_mode = debug_mode
-        self._log = log
+        self._version = __version__
+        self._bot_mode = BOT_MODE
 
         super().__init__(command_prefix=COMMAND_PREFIX,
                          intents=GATEWAY_INTENTS)
@@ -50,23 +39,18 @@ class MyBot(commands.Bot):
         return self._version
 
     @property
-    def log(self) -> logging.Logger:
-        """The program logger."""
-        return self._log
-
-    @property
     def bot_mode(self) -> BotMode:
         """What mode bot is running in. Read-only, set at init."""
         return self._bot_mode
 
     @property
-    def debug_mode(self) -> bool:
+    def debug_verbose(self) -> bool:
         """If running at debug verbosity. Can be modified at runtime."""
-        return self._debug_mode
+        return config.DEBUG_VERBOSE
 
-    @debug_mode.setter
-    def debug_mode(self, new_mode: bool) -> None:
-        self._debug_mode = new_mode
+    @debug_verbose.setter
+    def debug_verbose(self, new_mode: bool) -> None:
+        config.DEBUG_VERBOSE = new_mode
 
     async def setup_hook(self) -> None:
         """Perfom async setup after bot login but before connection."""
@@ -83,14 +67,14 @@ class MyBot(commands.Bot):
             # Copy global commands over to testing guild
             self.tree.copy_global_to(guild=guild)
 
-        self.log.debug(f"Syncing commands {context}.")
+        log.debug(f"Syncing commands {context}.")
         await self.tree.sync(guild=guild)
 
     async def on_ready(self) -> None:
         """Event listener for when bot is finished setting up."""
-        self.log.log(LOG_ALERT_LEVEL, "Bot is ready!")
+        log.log(LOG_ALERT_LEVEL, "Bot is ready!")
         # Try to notify developer for more convenient testing
-        if self.debug_mode:
+        if self.debug_verbose:
             timestamp = render_timestamp(datetime.now())
             content = (
                 f"{timestamp}@`on_ready`: Running version **{self.version}** "
@@ -99,7 +83,7 @@ class MyBot(commands.Bot):
             try:
                 await self.send_to_dev_dm(content)
             except discord.DiscordException:
-                self.log.exception("Could not send message to DM.")
+                log.exception("Could not send message to DM.")
 
     async def on_command_error(self, ctx: Context, exc: CommandError, /) -> None:
         """Handler for command errors."""
@@ -112,14 +96,14 @@ class MyBot(commands.Bot):
 
         # Generic check failed usually means the caller is unauthorized
         if isinstance(exc, commands.CheckFailure):
-            self.log.info(f"Check failed when {detail_call(ctx)}")
+            log.info(f"Check failed when {detail_call(ctx)}")
             embed = ErrorEmbed("You are not allowed to run this command.")
             await ctx.send(embed=embed)
             return
 
         # If I missed something, be sure to let me know
         # DO NOT LET UNACCOUNTED EXCEPTIONS PASS SILENTLY
-        self.log.critical("An unaccounted command error occurred.")
+        log.critical("An unaccounted command error occurred.")
         return await super().on_command_error(ctx, exc)
 
     async def send_to_dev_dm(self,
@@ -170,7 +154,7 @@ async def _load_bot_extensions(bot: MyBot) -> None:
     Args:
         bot (MyBot): The bot instance.
     """
-    cogs_path = AbsPath("cogs/")
+    cogs_path = AbsPath("commands/")
 
     num_success = 0
     num_total = 0
@@ -183,7 +167,7 @@ async def _load_bot_extensions(bot: MyBot) -> None:
         try:
             cog_contents = os.listdir(dirpath)
         except NotADirectoryError:
-            bot.log.warning(
+            log.warning(
                 "There must only be directories inside the cogs/ directory. "
                 f"Found file {dirname!r} instead."
             )
@@ -193,30 +177,30 @@ async def _load_bot_extensions(bot: MyBot) -> None:
         for filename in cog_contents:
             if filename == "cog.py":
                 num_total += 1
-                name = f".cogs.{dirname}.cog"
+                name = f".commands.{dirname}.cog"
                 try:
                     await bot.load_extension(name, package=__package__)
-                    bot.log.debug(f"Loaded {name=} as bot extension.")
+                    log.debug(f"Loaded {name=} as bot extension.")
                     num_success += 1
                 except commands.ExtensionError:
-                    bot.log.exception(
+                    log.exception(
                         f"Failed to load {name=} as bot extension."
                     )
                 break
         else:
-            bot.log.error(
+            log.error(
                 "There must be exactly one cog.py in every cogs/ "
                 f"subdirectory, but none was found in {dirname!r}."
             )
 
     # Status report
     if num_success == num_total:
-        bot.log.debug(
+        log.info(
             "Successfully loaded all cogs as extensions "
             f"({num_success} success/{num_total} total)."
         )
     else:
-        bot.log.critical(
+        log.critical(
             "Failed to load all cogs as extensions "
             f"({num_success} success/{num_total} total)."
         )

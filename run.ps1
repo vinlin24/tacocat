@@ -67,7 +67,7 @@ function Start-BotScript {
         # Try moving focus to Discord to prepare for testing
         Show-Window "Discord"
         # Bot runtime entry point
-        python bot/main.py
+        python -m bot
     }
     finally {
         # Cleanup
