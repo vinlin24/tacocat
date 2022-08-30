@@ -1,6 +1,8 @@
 """exceptions.py
 
 Defines custom exceptions for this project.
+
+TODO: maybe ditch this system altogether and use builtin exceptions.
 """
 
 
@@ -14,3 +16,11 @@ class UnexpectedError(Exception):
 
 class InvariantError(Exception):
     """An error caused by inconsistency in invariants."""
+
+
+class NotFoundError(Exception):
+    """Generic error when a certain resource cannot be found."""
+
+
+class NotApplicableError(Exception):
+    """Generic error when something is not applicable."""

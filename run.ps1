@@ -11,6 +11,8 @@ $SCRIPT_NAME = "run.ps1"
 $ROOT_NAME = "tacocat"
 $ROOT_PARENT_NAME = "repos"
 
+$TEST_FILE_PATH = "test/test.py"
+
 # Assert that script is being run at project root
 $currentDir = Split-Path (Get-Location) -Leaf
 $dirPart = Split-Path (Get-Location) -Parent
@@ -77,6 +79,12 @@ function Start-BotScript {
     }
 }
 
+<# Run test module #>
+function Start-TestScript {
+    Write-Host "TASK: Running $TEST_FILE_PATH..." -ForegroundColor Yellow
+    python $TEST_FILE_PATH
+}
+
 <# Run pre-commit checklist #>
 function Start-CommitCheck {
     Write-Host "TASK: Running pre-commit checklist..." -ForegroundColor Yellow
@@ -96,6 +104,7 @@ function Start-CommitCheck {
 switch ($TaskName) {
     "" { $taskFunction = "Start-BotScript" }
     "Run" { $taskFunction = "Start-BotScript" }
+    "Test" { $taskFunction = "Start-TestScript" }
     "Commit" { $taskFunction = "Start-CommitCheck" }
     default {
         Write-Host "Unrecognized task name '$TaskName', aborted." -ForegroundColor Red
