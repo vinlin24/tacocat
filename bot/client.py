@@ -13,9 +13,9 @@ from discord.ext.commands import (CheckFailure, CommandError, CommandNotFound,
                                   Context)
 
 from . import config
-from .config import (BOT_MODE, COMMAND_PREFIX, DEBUG_GUILD, DEVELOPER_USER_ID,
-                     GATEWAY_INTENTS, LOG_ALERT_LEVEL, AbsPath, BotMode,
-                     __version__)
+from .config import (BOT_MODE, COMMAND_PREFIX, COMMANDS_DIR_PATH, DEBUG_GUILD,
+                     DEVELOPER_USER_ID, GATEWAY_INTENTS, LOG_ALERT_LEVEL,
+                     BotMode, __version__)
 from .exceptions import UnexpectedError
 from .logger import log
 from .utils import ErrorEmbed, detail_call, render_timestamp
@@ -153,14 +153,12 @@ async def _load_bot_extensions(bot: MyBot) -> None:
     Args:
         bot (MyBot): The bot instance.
     """
-    cogs_path = AbsPath("commands/")
-
     num_success = 0
     num_total = 0
 
     # cogs/ should contain subdirectories for each cog implementation
-    for dirname in os.listdir(cogs_path):
-        dirpath = os.path.join(cogs_path, dirname)
+    for dirname in os.listdir(COMMANDS_DIR_PATH):
+        dirpath = os.path.join(COMMANDS_DIR_PATH, dirname)
 
         # But if there's somehow a file, warn the log
         try:

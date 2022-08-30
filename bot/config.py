@@ -90,13 +90,25 @@ GATEWAY_INTENTS = discord.Intents.all()
 """Discord API gateway intents."""
 
 
-# ==================== LOGGING ==================== #
+# ==================== FILE PATHS ==================== #
+
+COMMANDS_DIR_PATH = AbsPath("commands/")
+"""Absolute path to the commands directory, where cogs are defined."""
+
+ASSETS_DIR_PATH = AbsPath("assets/")
+"""Absolute path to the assets directory, where static files are held."""
+
+TEMP_DIR_PATH = AbsPath("temp/")
+"""Absolute path to the temp directory, where temp files are sent to."""
 
 PROGRAM_LOG_PATH = AbsPath("logs/bot.log")
 """Absolute path to the program log file."""
 
 DISCORD_LOG_PATH = AbsPath("logs/discord.log")
 """Absolute path to the discord.py log file."""
+
+
+# ==================== LOGGING ==================== #
 
 PROGRAM_LOG_FMT = "[%(asctime)s] [%(levelname)-8s] %(filename)s:%(lineno)s: %(message)s"
 """Message format for the program logger."""
