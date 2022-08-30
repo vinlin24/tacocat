@@ -30,8 +30,10 @@ class MyBot(commands.Bot):
         self._version = __version__
         self._bot_mode = BOT_MODE
 
-        super().__init__(command_prefix=COMMAND_PREFIX,
-                         intents=GATEWAY_INTENTS)
+        super().__init__(
+            command_prefix=commands.when_mentioned_or(COMMAND_PREFIX),
+            intents=GATEWAY_INTENTS
+        )
 
     @property
     def version(self) -> str:
