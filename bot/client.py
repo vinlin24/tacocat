@@ -56,9 +56,9 @@ class MyBot(commands.Bot):
         """Perfom async setup after bot login but before connection."""
         await _load_bot_extensions(self)
 
-        # Sync commands globally if running remotely (takes hours)
+        # Sync commands globally if deployed (takes hours)
         # Otherwise, just sync it to the testing guild (immediate)
-        if self.bot_mode == BotMode.REMOTE:
+        if self.bot_mode == BotMode.PRODUCTION:
             guild = None
             context = "globally"
         else:

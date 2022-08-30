@@ -36,7 +36,7 @@ logging.addLevelName(LOG_ALERT_LEVEL, "ALERT")
 # Set up the program logger
 _file_handler = logging.FileHandler(
     filename=PROGRAM_LOG_PATH,
-    mode="at" if BOT_MODE is BotMode.REMOTE else "wt",
+    mode="at" if BOT_MODE is BotMode.PRODUCTION else "wt",
     encoding="utf-8"
 )
 _stream_handler = logging.StreamHandler()
@@ -61,7 +61,7 @@ log.debug("Program logging configured.")
 # Separate discord.py library logging into its own log file
 discord_handler = logging.FileHandler(
     filename=DISCORD_LOG_PATH,
-    mode="at" if BOT_MODE is BotMode.REMOTE else "wt",
+    mode="at" if BOT_MODE is BotMode.PRODUCTION else "wt",
     encoding="utf-8"
 )
 """Handler to override discord.py's library logging."""

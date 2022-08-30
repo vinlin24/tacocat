@@ -46,15 +46,17 @@ class AbsPath(str):
 class BotMode(enum.Enum):
     """Enum for the possible modes the bot could be running in."""
 
-    LOCAL = "LOCAL"
-    """The bot is running from a local machine.
+    DEVELOPMENT = "DEVELOPMENT"
+    """This version of the bot is still being developer and/or tested.
     
-    For the most part, this is synonymous with DEVELOPMENT mode.
+    Usually, this means it is being run on my local machine.
     """
-    REMOTE = "REMOTE"
-    """The bot is running from a remote host.
+
+    PRODUCTION = "PRODUCTION"
+    """This version of the bot is ready to be deployed on a server.
     
-    For the most part, this is synonymous with PRODUCTION mode.
+    Usually, this means it is being hosted on a remote service, but it
+    could also be running from a dedicated computer.
     """
 
 
@@ -66,8 +68,9 @@ PROJECT_NAME = "tacocat"
 __version__ = os.environ["BOT_VERSION"]
 """Version string of the bot."""
 
-BOT_MODE = (BotMode.REMOTE if os.environ["BOT_MODE"].lower() == "remote"
-            else BotMode.LOCAL)
+BOT_MODE = (BotMode.PRODUCTION
+            if os.environ["BOT_MODE"].lower() == "production"
+            else BotMode.DEVELOPMENT)
 """Mode the bot is running in."""
 
 DEBUG_VERBOSE = os.environ["DEBUG_VERBOSE"].lower() != "false"
