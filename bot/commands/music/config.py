@@ -5,6 +5,8 @@ Music cog specific configuration options.
 
 import os
 
+import discord
+
 # ==================== AUDIO OPTIONS ==================== #
 
 YTDL_FORMAT_OPTIONS = {
@@ -31,3 +33,28 @@ SPOTIFY_CLIENT_ID = os.environ["SPOTIFY_CLIENT_ID"]
 
 SPOTIFY_CLIENT_SECRET = os.environ["SPOTIFY_CLIENT_SECRET"]
 """Client secret for Spotify app."""
+
+
+# ==================== EMBED FACTORIES ==================== #
+
+class MusicEmbed(discord.Embed):
+    """Custom embed style for the Music cog."""
+
+    def __init__(self,
+                 description: str,
+                 *,
+                 title: str | None = None,
+                 url: str | None = None
+                 ) -> None:
+        super().__init__(color=discord.Color.yellow(),
+                         description=description,
+                         title=title,
+                         url=url)
+
+
+class MusicErrorEmbed(discord.Embed):
+    """Custom embed style for user errors in the Music cog."""
+
+    def __init__(self, description: str) -> None:
+        super().__init__(color=discord.Color.red(),
+                         description=description)

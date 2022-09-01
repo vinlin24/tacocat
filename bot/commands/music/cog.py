@@ -13,8 +13,51 @@ from discord.ext.commands import Context
 from ...client import MyBot
 from ...exceptions import InvariantError, NotApplicableError, NotFoundError
 from ...logger import log
-from ...utils import ErrorEmbed, detail_call
+from ...utils import detail_call
+from .config import MusicEmbed, MusicErrorEmbed
 from .tracks import SoundCloudTrack, SpotifyTrack, YouTubeTrack
+
+# ==================== HELPER FUNCTIONS ==================== #
+
+
+async def _react_either(ctx: Context[MyBot],
+                        *,
+                        reaction: str = "✅",
+                        content: str | None = None,
+                        embed: discord.Embed | None = None,
+                        ) -> None:
+    """Respond to a hybrid command based on how it was invoked.
+
+    This helper is motivated by the fact that conventional reaction
+    responses do not count as an Interaction response for application
+    commands, so a traditional message is needed.
+
+    Raises:
+        InvariantError: Neither content nor embed was provided.
+
+    Args:
+        ctx (Context[MyBot]): Context of hybrid command.
+        reaction (str, optional): Emoji to react with if command was
+        invoked as a text command. Defaults to "✅".
+        content (str | None, optional): Text to send if command was
+        invoked as a slash command. Defaults to None.
+        embed (discord.Embed | None, optional): Embed to send if
+        command was invoked as a slash command. Both content and embed
+        can be provided simultaneously, and at least one of the two
+        must be provided. Defaults to None.
+    """
+    if ctx.interaction:
+        if content is None and embed is None:
+            raise InvariantError(
+                "Either or both arguments content and embed must be "
+                "provided, but both were None."
+            )
+        await ctx.send(content=content, embed=embed)
+    else:
+        await ctx.message.add_reaction(reaction)
+
+
+# ==================== COG DEFINITION ==================== #
 
 
 class MusicCog(commands.Cog, name="Music"):
@@ -52,37 +95,38 @@ class MusicCog(commands.Cog, name="Music"):
         await channel.connect(self_deaf=True)
 
         # Respond to interaction
-        await ctx.send(f"Connected to channel {channel.mention}.")
+        embed = MusicEmbed(f"Connected to channel {channel.mention}.")
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="pause", help="Pauses the player.")
     async def pause(self, ctx: Context[MyBot]) -> None:
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
-            if ctx.interaction:
-                await ctx.send("Player is not playing anything.")
-            else:
-                await ctx.message.add_reaction("❓")
+            embed = MusicErrorEmbed("Player is not playing anything.")
+            await _react_either(ctx,
+                                embed=embed,
+                                reaction="❓")
         else:
             vc.pause()
-            if ctx.interaction:
-                await ctx.send("Player paused.")
-            else:
-                await ctx.message.add_reaction("⏸️")
+            embed = MusicEmbed("Player paused.")
+            await _react_either(ctx,
+                                embed=embed,
+                                reaction="⏸️")
 
     @commands.hybrid_command(name="resume", help="Resumes the player.")
     async def resume(self, ctx: Context[MyBot]) -> None:
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
-            if ctx.interaction:
-                await ctx.send("Player is not playing anything.")
-            else:
-                await ctx.message.add_reaction("❓")
+            embed = MusicErrorEmbed("Player is not playing anything.")
+            await _react_either(ctx,
+                                embed=embed,
+                                reaction="❓")
         else:
             vc.resume()
-            if ctx.interaction:
-                await ctx.send("Player resumed.")
-            else:
-                await ctx.message.add_reaction("▶️")
+            embed = MusicEmbed("Player resumed.")
+            await _react_either(ctx,
+                                embed=embed,
+                                reaction="▶️")
 
     @commands.hybrid_command(name="play", help="Queue a track from query")
     @app_commands.describe(
@@ -118,12 +162,12 @@ class MusicCog(commands.Cog, name="Music"):
         try:
             src = await cls.from_query(query, self.bot.loop)
         except NotFoundError:
-            embed = ErrorEmbed(
+            embed = MusicErrorEmbed(
                 f"Could not find a track with your query {query!r}.")
             await ctx.send(embed=embed)
             return
         except ValueError:
-            embed = ErrorEmbed(
+            embed = MusicErrorEmbed(
                 "An error occurred while trying to find a track with your "
                 f"query {query!r}. If you're searching for a SoundCloud "
                 "resource, please use the URL."
@@ -137,7 +181,8 @@ class MusicCog(commands.Cog, name="Music"):
         ))
 
         # Respond to interaction
-        await ctx.send(f"Now playing from {platform}: {src.title}.")
+        embed = MusicEmbed(src.title, title=f"Now playing from {platform}")
+        await ctx.send(embed=embed)
 
 
 async def setup(bot: MyBot) -> None:
