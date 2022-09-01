@@ -10,6 +10,7 @@ import asyncio
 from abc import ABCMeta, abstractmethod
 
 import discord
+import sclib
 import tekore
 import youtube_dl
 
@@ -95,6 +96,9 @@ ytdl = youtube_dl.YoutubeDL(YTDL_FORMAT_OPTIONS)
 
 spotify = _init_spotify_client()
 """Handler for making Spotify API calls."""
+
+soundcloud = sclib.SoundcloudAPI()
+"""Handler for making SoundCloud API calls."""
 
 
 async def _get_info_dict(query: str, loop: asyncio.AbstractEventLoop) -> dict:
@@ -225,12 +229,72 @@ class SpotifyTrack(Track):
         return cls(title, artists, data["url"])
 
 
+class SoundCloudTrack(Track):
+    """Represents the audio of a SoundCloud track."""
+
+    def __init__(self, title: str, artist: str, source_url: str) -> None:
+        """Intercept from_query initialization to set properties."""
+        self._title = title
+        self._artist = artist
+        super().__init__(source_url)
+
+    @property
+    def title(self) -> str:
+        """Title of SoundCloud track."""
+        return self._title
+
+    @property
+    def artists(self) -> list[str]:
+        """Name of artist of SoundCloud track, as a list."""
+        return [self._artist]
+
+    @classmethod
+    async def from_query(cls,
+                         url: str,
+                         loop: asyncio.AbstractEventLoop
+                         ) -> "SoundCloudTrack":
+        """Initialize a playable SoundCloud track from URL.
+
+        Due to SoundCloud not accepting app registration anymore, I am
+        forced to use the soundcloud-lib API wrapper that doesn't
+        require a client ID. The downside is that it does not support
+        searching for tracks by query.
+
+        Raises:
+            ValueError: The url caused some error in the sclib library.
+            ValueError: The url points to a playlist or other non-Track
+            resource.
+            NotFoundError: Could not find any SoundCloud resource with
+            the given url.
+        """
+        def _soundcloud_resolve() -> sclib.Track | sclib.Playlist | None:
+            try:
+                return soundcloud.resolve(url)
+            # Library raises this when URL cannot be resolved
+            except TypeError:
+                raise ValueError(f"Could not resolve {url=}.") from None
+
+        # Get result asynchronously
+        result = await loop.run_in_executor(None, _soundcloud_resolve)
+
+        # Assert that the result is a track
+        if result is None:
+            raise NotFoundError(
+                f"Could not find any SoundCloud resource with {url=}.")
+        if type(result) is not sclib.Track:
+            raise ValueError(
+                f"{url=} points to a playlist or other non-Track resource.")
+
+        # Construct AudioSource from track attributes and stream URL
+        return cls(result.title, result.artist, result.get_stream_url())
+
+
 # ==================== TEST CODE ==================== #
 
 async def _test() -> None:
     """Throwaway test code: python -m bot.commands.music.tracks"""
-    query = "sgdkhkjdahsgasdkkashjkhasdkjghsakjhkljas;h;"
-    track = await YouTubeTrack.from_query(query, asyncio.get_event_loop())
+    query = "https://soundcloud.com/rarinmusic/gta"
+    track = await SoundCloudTrack.from_query(query, asyncio.get_event_loop())
     print(track.title)
     print(track.artists)
 
