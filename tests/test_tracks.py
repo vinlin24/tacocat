@@ -18,6 +18,7 @@ import unittest
 
 try:
     from bot.commands.music.tracks import Platform, Track
+    from bot.exceptions import NotFoundError
 except ImportError as e:
     print(f"{type(e).__name__}: {e}")
     sys.exit(1)
@@ -41,6 +42,11 @@ class TestTracks(unittest.IsolatedAsyncioTestCase):
         track = await Track.from_query("never gonna give you up", get_loop())
         self.assertIs(track.platform, Platform.YOUTUBE)
 
+    async def test_youtube_fail(self) -> None:
+        invalid_url = "https://www.youtube.com/watch?v=whattheheck"
+        with self.assertRaises(NotFoundError):
+            await Track.from_query(invalid_url, get_loop(), Platform.YOUTUBE)
+
     async def test_spotify_search(self) -> None:
         track = await Track.from_query("let her go", get_loop(), Platform.SPOTIFY)
         self.assertIs(track.platform, Platform.SPOTIFY)
@@ -53,6 +59,11 @@ class TestTracks(unittest.IsolatedAsyncioTestCase):
         track = await Track.from_query("https://open.spotify.com/track/1KxwZYyzWNyZSRyErj2ojT?si=07cfd8b6a68c4ae9", get_loop())
         self.assertIs(track.platform, Platform.SPOTIFY)
 
+    async def test_spotify_url_fail(self) -> None:
+        invalid_url = "https://open.spotify.com/track/1KxwZYyzWNyZSRyErj2ojTLMFAOlol"
+        with self.assertRaises(NotFoundError):
+            await Track.from_query(invalid_url, get_loop(), Platform.SPOTIFY)
+
     async def test_soundcloud_url_explicit(self) -> None:
         track = await Track.from_query("https://soundcloud.com/rarinmusic/gta", get_loop(), Platform.SOUNDCLOUD)
         self.assertIs(track.platform, Platform.SOUNDCLOUD)
@@ -64,6 +75,11 @@ class TestTracks(unittest.IsolatedAsyncioTestCase):
     async def test_soundcloud_search(self) -> None:
         with self.assertRaises(ValueError):
             await Track.from_query("rarinmusic gta", get_loop(), Platform.SOUNDCLOUD)
+
+    async def test_soundcloud_url_fail(self) -> None:
+        invalid_url = "https://soundcloud.com/rarinmusic/gtaLMFAOlol"
+        with self.assertRaises(NotFoundError):
+            await Track.from_query(invalid_url, get_loop(), Platform.SOUNDCLOUD)
 
 
 if __name__ == "__main__":
