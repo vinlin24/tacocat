@@ -105,8 +105,10 @@ class MyBot(commands.Bot):
 
         # If I missed something, be sure to let me know
         # DO NOT LET UNACCOUNTED EXCEPTIONS PASS SILENTLY
-        log.critical("An unaccounted command error occurred.")
-        return await super().on_command_error(ctx, exc)
+        log.critical(
+            f"An unaccounted command error occurred when {detail_call(ctx)}\n"
+            f"{type(exc).__name__}: {exc}"
+        )
 
     async def send_to_dev_dm(self,
                              content: str | None = None,

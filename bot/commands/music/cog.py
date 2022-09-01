@@ -49,6 +49,9 @@ class MusicCog(commands.Cog, name="Music"):
             return await ctx.voice_client.move_to(channel)  # type: ignore
         await channel.connect(self_deaf=True)
 
+        # Respond to interaction
+        await ctx.send(f"Connected to channel {channel.mention}.")
+
     @commands.hybrid_command(name="play", help="Queue a track from query")
     @app_commands.describe(query="Query to search with")
     async def play(self, ctx: Context[MyBot], *, query: str) -> None:
