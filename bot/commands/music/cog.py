@@ -181,7 +181,10 @@ class MusicCog(commands.Cog, name="Music"):
         ))
 
         # Respond to interaction
-        embed = MusicEmbed(src.title, title=f"Now playing from {platform}")
+        embed = MusicEmbed(src.title,
+                           title=f"Now playing from {platform}",
+                           url=src.url)
+        embed.set_footer(text=", ".join(src.artists))
         await ctx.send(embed=embed)
 
 

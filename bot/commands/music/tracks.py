@@ -28,20 +28,21 @@ class Track(discord.PCMVolumeTransformer, metaclass=ABCMeta):
     ```python
     (property) title: (Self) -> str
     (property) artists: (Self) -> list[str]
+    (property) url: (Self) -> str
     (classmethod) from_query: (Type[Self], str) -> Self
     ```
     """
 
-    def __init__(self, source_url: str) -> None:
+    def __init__(self, stream_url: str) -> None:
         """Initialize the track and make it playable on Discord.
 
         This method should be called indirectly through the from_query
         class method.
 
         Args:
-            source_url: Stream URL of the resource.
+            stream_url: Stream URL of the resource.
         """
-        audiosource = discord.FFmpegPCMAudio(source_url, **FFMPEG_OPTIONS)
+        audiosource = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
         super().__init__(audiosource)
 
     @property
@@ -53,6 +54,11 @@ class Track(discord.PCMVolumeTransformer, metaclass=ABCMeta):
     @abstractmethod
     def artists(self) -> list[str]:
         """List of track artists."""
+
+    @property
+    @abstractmethod
+    def url(self) -> str:
+        """Link to resource. Not to be confused with stream URL."""
 
     @classmethod
     @abstractmethod
@@ -88,7 +94,7 @@ def _init_spotify_client() -> tekore.Spotify:
     """
     token = tekore.request_client_token(SPOTIFY_CLIENT_ID,
                                         SPOTIFY_CLIENT_SECRET)
-    return tekore.Spotify(token.access_token)
+    return tekore.Spotify(token.access_token, asynchronous=True)
 
 
 ytdl = youtube_dl.YoutubeDL(YTDL_FORMAT_OPTIONS)
@@ -139,11 +145,17 @@ async def _get_info_dict(query: str, loop: asyncio.AbstractEventLoop) -> dict:
 class YouTubeTrack(Track):
     """Represents the audio of a YouTube video."""
 
-    def __init__(self, title: str, uploader: str, source_url: str) -> None:
+    def __init__(self,
+                 title: str,
+                 uploader: str,
+                 url: str,
+                 stream_url: str
+                 ) -> None:
         """Intercept from_query initialization to set properties."""
         self._title = title
         self._uploader = uploader
-        super().__init__(source_url)
+        self._url = url
+        super().__init__(stream_url)
 
     @property
     def title(self) -> str:
@@ -155,6 +167,11 @@ class YouTubeTrack(Track):
         """Name of the uploader of the YouTube video, as a list."""
         return [self._uploader]
 
+    @property
+    def url(self) -> str:
+        """URL link of YouTube video."""
+        return self._url
+
     @classmethod
     async def from_query(cls,
                          query: str,
@@ -165,9 +182,17 @@ class YouTubeTrack(Track):
         Raises:
             NotFoundError: Could not find a Youtube video with query.
         """
-        # Construct AudioSource from info dict
+        # API call
         data = await _get_info_dict(query, loop)
-        return cls(data["title"], data["uploader"], data["url"])
+
+        # Unpack attributes
+        title = data["title"]
+        uploader = data["uploader"]
+        url = data["webpage_url"]
+        stream_url = data["url"]
+
+        # Construct AudioSource from info dict
+        return cls(title, uploader, url, stream_url)
 
 
 class SpotifyTrack(Track):
@@ -181,12 +206,14 @@ class SpotifyTrack(Track):
     def __init__(self,
                  title: str,
                  artists: list[str],
-                 source_url: str
+                 url: str,
+                 stream_url: str
                  ) -> None:
         """Intercept from_query initialization to set properties."""
         self._title = title
         self._artists = artists
-        super().__init__(source_url)
+        self._url = url
+        super().__init__(stream_url)
 
     @property
     def title(self) -> str:
@@ -197,6 +224,11 @@ class SpotifyTrack(Track):
     def artists(self) -> list[str]:
         """Names of the artists of the Spotify track."""
         return self._artists
+
+    @property
+    def url(self) -> str:
+        """URL link of the Spotify track."""
+        return self._url
 
     @classmethod
     async def from_query(cls,
@@ -209,7 +241,8 @@ class SpotifyTrack(Track):
             NotFoundError: Could not find a Spotify track with query.
             NotFoundError: Could not find a Youtube video with query.
         """
-        result = spotify.search(query, limit=1)
+        # API call
+        result = await spotify.search(query, limit=1)  # type: ignore
         paging: tekore.model.FullTrackPaging = result[0]
 
         try:
@@ -218,25 +251,34 @@ class SpotifyTrack(Track):
             raise NotFoundError(
                 f"No Spotify track could be found with {query=}.") from None
 
+        # Unpack track attributes from Spotify database
         title = track.name
         artists = [a.name for a in track.artists]
+        url = track.external_urls["spotify"]
 
         # Get YouTube info about track
-        query = title + " " + " ".join(artists)
+        query = title + " " + " ".join(artists)  # As precise as possible!
         data = await _get_info_dict(query, loop)
+        stream_url = data["url"]
 
         # Construct AudioSource with track attributes and stream URL
-        return cls(title, artists, data["url"])
+        return cls(title, artists, url, stream_url)
 
 
 class SoundCloudTrack(Track):
     """Represents the audio of a SoundCloud track."""
 
-    def __init__(self, title: str, artist: str, source_url: str) -> None:
+    def __init__(self,
+                 title: str,
+                 artist: str,
+                 url: str,
+                 stream_url: str
+                 ) -> None:
         """Intercept from_query initialization to set properties."""
         self._title = title
         self._artist = artist
-        super().__init__(source_url)
+        self._url = url
+        super().__init__(stream_url)
 
     @property
     def title(self) -> str:
@@ -247,6 +289,11 @@ class SoundCloudTrack(Track):
     def artists(self) -> list[str]:
         """Name of artist of SoundCloud track, as a list."""
         return [self._artist]
+
+    @property
+    def url(self) -> str:
+        """URL link of the SoundCloud track."""
+        return self._url
 
     @classmethod
     async def from_query(cls,
@@ -274,7 +321,7 @@ class SoundCloudTrack(Track):
             except TypeError:
                 raise ValueError(f"Could not resolve {url=}.") from None
 
-        # Get result asynchronously
+        # API call
         result = await loop.run_in_executor(None, _soundcloud_resolve)
 
         # Assert that the result is a track
@@ -285,18 +332,26 @@ class SoundCloudTrack(Track):
             raise ValueError(
                 f"{url=} points to a playlist or other non-Track resource.")
 
+        # Unpack track attributes from SoundCloud database
+        title = result.title
+        artist = result.artist
+        url = result.permalink_url
+        stream_url = result.get_stream_url()
+
         # Construct AudioSource from track attributes and stream URL
-        return cls(result.title, result.artist, result.get_stream_url())
+        return cls(title, artist, url, stream_url)
 
 
 # ==================== TEST CODE ==================== #
 
 async def _test() -> None:
     """Throwaway test code: python -m bot.commands.music.tracks"""
-    query = "https://soundcloud.com/rarinmusic/gta"
-    track = await SoundCloudTrack.from_query(query, asyncio.get_event_loop())
+    soundcloud_link = "https://soundcloud.com/rarinmusic/gta"
+    query = "let her go"
+    track = await SoundCloudTrack.from_query(soundcloud_link, asyncio.get_event_loop())
     print(track.title)
     print(track.artists)
+    print(track.url)
 
 if __name__ == "__main__":
     asyncio.run(_test())
