@@ -207,6 +207,7 @@ class Track(discord.PCMVolumeTransformer):
                 )
 
         # Run helper asynchronously
+        log.debug(f"Running helper {func.__name__!r}...")
         return await loop.run_in_executor(None, func, query_or_url)
 
 

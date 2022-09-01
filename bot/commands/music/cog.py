@@ -15,7 +15,7 @@ from ...exceptions import InvariantError, NotApplicableError, NotFoundError
 from ...logger import log
 from ...utils import detail_call
 from .config import MusicEmbed, MusicErrorEmbed
-from .tracks import SoundCloudTrack, SpotifyTrack, YouTubeTrack
+from .tracks import Platform, Track
 
 # ==================== HELPER FUNCTIONS ==================== #
 
@@ -57,6 +57,25 @@ async def _react_either(ctx: Context[MyBot],
         await ctx.message.add_reaction(reaction)
 
 
+def _make_np_embed(src: Track) -> MusicEmbed:
+    """Style an embed for the "Now playing" message.
+
+    Args:
+        src (Track): Track that is now playing.
+
+    Returns:
+        MusicEmbed: The styled embed.
+    """
+    embed = MusicEmbed(src.title,
+                       title=f"Now playing from {src.platform.value}",
+                       url=src.url)
+    footer_text = src.artist
+    if src.collab is not None:
+        footer_text += f", {src.collab}"
+    embed.set_footer(text=footer_text)
+    return embed
+
+
 # ==================== COG DEFINITION ==================== #
 
 
@@ -81,7 +100,7 @@ class MusicCog(commands.Cog, name="Music"):
             log.warning(f"{type(error).__name__}: {detail_call(ctx)}")
             return
 
-    @commands.hybrid_command(name="join", help="Summon bot to a channel")
+    @commands.hybrid_command(name="join", aliases=["connect"], help="Summon bot to a channel")
     @app_commands.describe(channel="Voice channel to join")
     async def join(self, ctx: Context[MyBot], *, channel: discord.VoiceChannel):
 
@@ -128,10 +147,26 @@ class MusicCog(commands.Cog, name="Music"):
                                 embed=embed,
                                 reaction="▶️")
 
-    @commands.hybrid_command(name="play", help="Queue a track from query")
+    @commands.hybrid_command(name="skip", aliases=["next"], help="Skip the current track")
+    async def skip(self, ctx: Context[MyBot]) -> None:
+        # TODO: finish later, this is for easier testing
+        vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
+        if vc is None:
+            embed = MusicErrorEmbed("Player is not playing anything.")
+            await _react_either(ctx,
+                                embed=embed,
+                                reaction="❓")
+        else:
+            vc.stop()
+            embed = MusicEmbed("Track skipped.")
+            await _react_either(ctx,
+                                embed=embed,
+                                reaction="⏭️")
+
+    @commands.hybrid_command(name="play", aliases=["p"], help="Queue a track from query")
     @app_commands.describe(
-        platform="Platform to search on. Defaults to YouTube",
-        query="Query to search with (URL for SoundCloud)"
+        query="Query to search with (URL for SoundCloud)",
+        platform="Platform to search on (Defaults to YouTube, ignored if you use a URL)"
     )
     async def play(self,
                    ctx: Context[MyBot],
@@ -140,39 +175,38 @@ class MusicCog(commands.Cog, name="Music"):
                    platform: Literal["YouTube", "Spotify",
                                      "SoundCloud"] = "YouTube",
                    ) -> None:
+        if ctx.interaction:
+            await ctx.interaction.response.defer(thinking=True)
 
         # TODO: add support for joining the channel the caller is in
         # TODO: check conditions before moving to another channel
 
-        # Determine platform
-        # TODO: if query is a URL, override platform arg (this also makes more
-        # sense for the text command counterpart, where it always defaults to
-        # YouTube)
+        # Determine platform from hint, but if query is a URL,
+        # it'll be overridden anyway
         match (platform):
             case "YouTube":
-                cls = YouTubeTrack
+                p = Platform.YOUTUBE
             case "Spotify":
-                cls = SpotifyTrack
+                p = Platform.SPOTIFY
             case "SoundCloud":
-                cls = SoundCloudTrack
+                p = Platform.SOUNDCLOUD
             case _:
-                raise InvariantError(f"{platform=} is not a valid choice")
+                raise InvariantError(f"{platform=} is not a valid choice.")
 
         # Obtain playable track
         try:
-            src = await cls.from_query(query, self.bot.loop)
+            src = await Track.from_query(query, self.bot.loop, platform=p)
         except NotFoundError:
-            embed = MusicErrorEmbed(
-                f"Could not find a track with your query {query!r}.")
-            await ctx.send(embed=embed)
+            await ctx.send(embed=MusicErrorEmbed(
+                f"Could not find a track with your query {query!r}."
+            ))
             return
         except ValueError:
-            embed = MusicErrorEmbed(
+            await ctx.send(embed=MusicErrorEmbed(
                 "An error occurred while trying to find a track with your "
                 f"query {query!r}. If you're searching for a SoundCloud "
                 "resource, please use the URL."
-            )
-            await ctx.send(embed=embed)
+            ))
             return
 
         # Play track: TEMP, DOESN'T SUPPORT QUEUE YET
@@ -181,11 +215,7 @@ class MusicCog(commands.Cog, name="Music"):
         ))
 
         # Respond to interaction
-        embed = MusicEmbed(src.title,
-                           title=f"Now playing from {platform}",
-                           url=src.url)
-        embed.set_footer(text=", ".join(src.artists))
-        await ctx.send(embed=embed)
+        await ctx.send(embed=_make_np_embed(src))
 
 
 async def setup(bot: MyBot) -> None:
