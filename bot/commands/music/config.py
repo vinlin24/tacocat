@@ -3,6 +3,10 @@
 Music cog specific configuration options.
 """
 
+import os
+
+# ==================== AUDIO OPTIONS ==================== #
+
 YTDL_FORMAT_OPTIONS = {
     "format": "bestaudio",
     "noplaylist": True,
@@ -18,3 +22,12 @@ FFMPEG_OPTIONS = {
     "options": "-vn"
 }
 """Options to pass to discord.FFmpegPCMAudio()."""
+
+
+# ==================== SPOTIFY APP CREDENTIALS ==================== #
+
+SPOTIFY_CLIENT_ID = os.environ["SPOTIFY_CLIENT_ID"]
+"""Client ID for Spotify app."""
+
+SPOTIFY_CLIENT_SECRET = os.environ["SPOTIFY_CLIENT_SECRET"]
+"""Client secret for Spotify app."""

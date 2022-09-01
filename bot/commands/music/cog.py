@@ -16,7 +16,7 @@ from .tracks import YouTubeTrack
 
 
 class MusicCog(commands.Cog, name="Music"):
-    """Description."""
+    """Commands related to playing audio from various platforms."""
 
     def __init__(self, bot: MyBot) -> None:
         self.bot = bot
