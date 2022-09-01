@@ -3,16 +3,18 @@
 Defines the cog class for the Music command category.
 """
 
+from typing import Literal
+
 import discord
 from discord import Interaction, app_commands
 from discord.ext import commands
 from discord.ext.commands import Context
 
 from ...client import MyBot
-from ...exceptions import NotApplicableError
+from ...exceptions import InvariantError, NotApplicableError, NotFoundError
 from ...logger import log
-from ...utils import detail_call
-from .tracks import YouTubeTrack
+from ...utils import ErrorEmbed, detail_call
+from .tracks import SoundCloudTrack, SpotifyTrack, YouTubeTrack
 
 
 class MusicCog(commands.Cog, name="Music"):
@@ -53,19 +55,59 @@ class MusicCog(commands.Cog, name="Music"):
         await ctx.send(f"Connected to channel {channel.mention}.")
 
     @commands.hybrid_command(name="play", help="Queue a track from query")
-    @app_commands.describe(query="Query to search with")
-    async def play(self, ctx: Context[MyBot], *, query: str) -> None:
+    @app_commands.describe(
+        platform="Platform to search on. Defaults to YouTube",
+        query="Query to search with (URL for SoundCloud)"
+    )
+    async def play(self,
+                   ctx: Context[MyBot],
+                   *,
+                   query: str,
+                   platform: Literal["YouTube", "Spotify",
+                                     "SoundCloud"] = "YouTube",
+                   ) -> None:
 
         # TODO: add support for joining the channel the caller is in
         # TODO: check conditions before moving to another channel
 
-        # TODO: TEMPORARY, TESTING
-        src = await YouTubeTrack.from_query(query, self.bot.loop)
+        # Determine platform
+        # TODO: if query is a URL, override platform arg (this also makes more
+        # sense for the text command counterpart, where it always defaults to
+        # YouTube)
+        match (platform):
+            case "YouTube":
+                cls = YouTubeTrack
+            case "Spotify":
+                cls = SpotifyTrack
+            case "SoundCloud":
+                cls = SoundCloudTrack
+            case _:
+                raise InvariantError(f"{platform=} is not a valid choice")
+
+        # Obtain playable track
+        try:
+            src = await cls.from_query(query, self.bot.loop)
+        except NotFoundError:
+            embed = ErrorEmbed(
+                f"Could not find a track with your query {query!r}.")
+            await ctx.send(embed=embed)
+            return
+        except ValueError:
+            embed = ErrorEmbed(
+                "An error occurred while trying to find a track with your "
+                f"query {query!r}. If you're searching for a SoundCloud "
+                "resource, please use the URL."
+            )
+            await ctx.send(embed=embed)
+            return
+
+        # Play track: TEMP, DOESN'T SUPPORT QUEUE YET
         ctx.voice_client.play(src, after=lambda e: (  # type: ignore
             e and log.error(f"Player error: {e}")
         ))
 
-        await ctx.send(f"Now playing {src.title}.")
+        # Respond to interaction
+        await ctx.send(f"Now playing from {platform}: {src.title}.")
 
 
 async def setup(bot: MyBot) -> None:
