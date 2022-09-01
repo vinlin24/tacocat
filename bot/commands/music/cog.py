@@ -54,6 +54,36 @@ class MusicCog(commands.Cog, name="Music"):
         # Respond to interaction
         await ctx.send(f"Connected to channel {channel.mention}.")
 
+    @commands.hybrid_command(name="pause", help="Pauses the player.")
+    async def pause(self, ctx: Context[MyBot]) -> None:
+        vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
+        if vc is None:
+            if ctx.interaction:
+                await ctx.send("Player is not playing anything.")
+            else:
+                await ctx.message.add_reaction("❓")
+        else:
+            vc.pause()
+            if ctx.interaction:
+                await ctx.send("Player paused.")
+            else:
+                await ctx.message.add_reaction("⏸️")
+
+    @commands.hybrid_command(name="resume", help="Resumes the player.")
+    async def resume(self, ctx: Context[MyBot]) -> None:
+        vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
+        if vc is None:
+            if ctx.interaction:
+                await ctx.send("Player is not playing anything.")
+            else:
+                await ctx.message.add_reaction("❓")
+        else:
+            vc.resume()
+            if ctx.interaction:
+                await ctx.send("Player resumed.")
+            else:
+                await ctx.message.add_reaction("▶️")
+
     @commands.hybrid_command(name="play", help="Queue a track from query")
     @app_commands.describe(
         platform="Platform to search on. Defaults to YouTube",
