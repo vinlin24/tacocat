@@ -3,6 +3,7 @@
 Defines the cog class for the Music command category.
 """
 
+import asyncio
 from typing import Literal
 
 import discord
@@ -13,11 +14,13 @@ from discord.ext.commands import Context
 from ...client import MyBot
 from ...exceptions import InvariantError, NotApplicableError, NotFoundError
 from ...logger import log
-from ...utils import detail_call
+from ...utils import detail_call, has_humans
 from .config import MusicEmbed, MusicErrorEmbed
 from .tracks import Platform, Track
 
 # ==================== HELPER FUNCTIONS ==================== #
+# For abstracting complex and/or repeated processes in their
+# respective main processes.
 
 
 async def _react_either(ctx: Context[MyBot],
@@ -76,6 +79,118 @@ def _make_np_embed(src: Track) -> MusicEmbed:
     return embed
 
 
+def _format_voice_channel(channel: discord.VoiceChannel) -> str:
+    """Return a logging-friendly representation of a voice channel."""
+    return (f"<VoiceChannel id={channel.id}, name={channel.name!r}>"
+            f"@<Guild id={channel.guild.id}, name="
+            f"{channel.guild.name!r}>")
+
+
+async def _join_channel(ctx: Context[MyBot],
+                        channel: discord.VoiceChannel | None  # type: ignore
+                        ) -> discord.VoiceChannel | None:
+    """Try to join a voice channel after checking the caller's state.
+
+    Before the bot joins the requested channel, this function will
+    check, in order:
+    1. The caller must already be connected to a channel or has
+    specified a channel (for /join).
+    2. Player must not already be in use in another voice channel of
+    the same guild.
+
+    If any of these checks fails, this function will respond
+    accordingly to the command/interaction and return None.
+
+    Args:
+        ctx (Context[MyBot]): Context of the command invoked.
+        channel (VoiceChannel | None): Channel the bot should try to
+        join. None if bot should try to use the caller's channel
+        instead.
+
+    Returns:
+        VoiceChannel | None: The voice channel the bot is not connected
+        to. None if checks failed and the bot did not connect, and this
+        function has already responded to the caller accordingly.
+    """
+    # If no channel was provided, use the caller's channel
+    if channel is None:
+        vs: discord.VoiceState | None = ctx.author.voice  # type: ignore
+        if vs is None or vs.channel is None:
+            await ctx.send(embed=MusicErrorEmbed(
+                f"{ctx.author.mention}, connect to a voice channel first "
+                "or choose a channel for the /join command."
+            ))
+            return None
+
+        # NOTE: VoiceState::channel is hinted as VocalGuildChannel
+        # This must be an exposed implementation detail because in
+        # practice and in the docs, it has the type VoiceChannel
+        channel: discord.VoiceChannel = vs.channel  # type: ignore
+
+    # NOTE: Context::voice_client is hinted as VoiceProtocol (ABC)
+    # But in practice and in the docs always has the type VoiceClient
+    vc: discord.VoiceClient = ctx.voice_client  # type: ignore
+
+    # Stop caller if trying to summon bot already in use elsewhere
+    if (vc is not None and vc.is_connected()
+            and has_humans(vc.channel)):  # type: ignore
+        if channel != vc.channel:
+            await ctx.send(embed=MusicErrorEmbed(
+                f"{ctx.author.mention}, someone else is listening to "
+                f"music in {vc.channel.mention}."
+            ))
+            return None
+
+    # Otherwise join the channel, moving if already connected to one
+    try:
+        await channel.connect(self_deaf=True)
+    except discord.ClientException:
+        await channel.guild.change_voice_state(channel=channel,
+                                               self_deaf=True)
+
+    log.debug(
+        f"{detail_call(ctx)} Successfully joined "
+        f"{_format_voice_channel(channel)}."
+    )
+    return channel
+
+
+async def _get_track(ctx: Context[MyBot],
+                     query: str,
+                     loop: asyncio.AbstractEventLoop,
+                     platform: Platform
+                     ) -> Track | None:
+    """Get playable track and handle any errors in attempting so.
+
+    If there is any error in obtaining the track, this function will
+    handle responding to the command/interaction and then return None.
+
+    Args:
+        ctx (Context[MyBot]): Context of command invoked.
+        query (str): Command input from user.
+        loop (asyncio.AbstractEventLoop): Event loop to execute the
+        process in. Caller should pass in the bot's event loop.
+        platform (Platform): Command input from user.
+
+    Returns:
+        Track | None: The playable audio source. None if unsuccessful.
+    """
+    try:
+        return await Track.from_query(query, loop, platform=platform)
+    except NotFoundError:
+        await ctx.send(embed=MusicErrorEmbed(
+            f"Could not find a track with your query {query!r}."
+        ))
+        return None
+    except ValueError:
+        await ctx.send(embed=MusicErrorEmbed(
+            "An error occurred while trying to find a track with your "
+            f"query {query!r}. If you're searching for a SoundCloud "
+            "resource, please use the URL."
+        ))
+        return None
+
+
 # ==================== COG DEFINITION ==================== #
 
 
@@ -102,20 +217,17 @@ class MusicCog(commands.Cog, name="Music"):
 
     @commands.hybrid_command(name="join", aliases=["connect"], help="Summon bot to a channel")
     @app_commands.describe(channel="Voice channel to join")
-    async def join(self, ctx: Context[MyBot], *, channel: discord.VoiceChannel):
+    async def join(self,
+                   ctx: Context[MyBot],
+                   *,
+                   channel: discord.VoiceChannel | None = None  # type: ignore
+                   ) -> None:
+        channel = await _join_channel(ctx, channel)
+        if channel is None:
+            return  # Failed, caller notified
 
-        # TODO: add support for joining the channel the caller is in
-        # TODO: check conditions before moving to another channel
-
-        if ctx.voice_client is not None:
-            # voice_client is hinted as VoiceProtocol (ABC)
-            # But should actually always be type VoiceClient
-            return await ctx.voice_client.move_to(channel)  # type: ignore
-        await channel.connect(self_deaf=True)
-
-        # Respond to interaction
         embed = MusicEmbed(f"Connected to channel {channel.mention}.")
-        await ctx.send(embed=embed)
+        await _react_either(ctx, reaction="👌", embed=embed)
 
     @commands.hybrid_command(name="pause", help="Pauses the player.")
     async def pause(self, ctx: Context[MyBot]) -> None:
@@ -175,14 +287,18 @@ class MusicCog(commands.Cog, name="Music"):
                    platform: Literal["YouTube", "Spotify",
                                      "SoundCloud"] = "YouTube",
                    ) -> None:
+        # In case API calls take too long
         if ctx.interaction:
             await ctx.interaction.response.defer(thinking=True)
 
-        # TODO: add support for joining the channel the caller is in
-        # TODO: check conditions before moving to another channel
+        # Same checking and joining process as /join
+        channel = await _join_channel(ctx, None)
+        if channel is None:
+            return  # Failed, caller notified
 
-        # Determine platform from hint, but if query is a URL,
-        # it'll be overridden anyway
+        # Determine platform from hint
+        # NOTE: But if query is a URL, platform will be ignored anyway
+        # as part of the design of Track.from_query()
         match (platform):
             case "YouTube":
                 p = Platform.YOUTUBE
@@ -194,28 +310,21 @@ class MusicCog(commands.Cog, name="Music"):
                 raise InvariantError(f"{platform=} is not a valid choice.")
 
         # Obtain playable track
-        try:
-            src = await Track.from_query(query, self.bot.loop, platform=p)
-        except NotFoundError:
-            await ctx.send(embed=MusicErrorEmbed(
-                f"Could not find a track with your query {query!r}."
-            ))
-            return
-        except ValueError:
-            await ctx.send(embed=MusicErrorEmbed(
-                "An error occurred while trying to find a track with your "
-                f"query {query!r}. If you're searching for a SoundCloud "
-                "resource, please use the URL."
-            ))
-            return
+        src = await _get_track(ctx, query, self.bot.loop, p)
+        if src is None:
+            return  # Failed, caller notified
 
         # Play track: TEMP, DOESN'T SUPPORT QUEUE YET
         ctx.voice_client.play(src, after=lambda e: (  # type: ignore
             e and log.error(f"Player error: {e}")
         ))
 
-        # Respond to interaction
+        # Success, respond to interaction
         await ctx.send(embed=_make_np_embed(src))
+        log.debug(
+            f"Now playing {src.title!r} from {src.platform.value} "
+            f"in {_format_voice_channel(channel)}."
+        )
 
 
 async def setup(bot: MyBot) -> None:

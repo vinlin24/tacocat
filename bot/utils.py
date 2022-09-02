@@ -140,3 +140,8 @@ class ErrorEmbed(discord.Embed):
         super().__init__(color=discord.Color.red(),
                          title="❌ Command Error",
                          description=description)
+
+
+def has_humans(channel: discord.VoiceChannel) -> bool:
+    """Whether channel currently has nonzero bots connected to it."""
+    return any(not member.bot for member in channel.members)
