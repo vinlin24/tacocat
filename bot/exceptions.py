@@ -8,14 +8,18 @@ TODO: maybe ditch this system altogether and use builtin exceptions.
 
 class UnexpectedError(Exception):
     """
-    An error that was flagged as possible by typing, etc. but I do not
-    know what could cause it or its occurrence is not expected in the
-    context it has been written.
+    An error that was flagged as possible by type hints, etc. but I do
+    not know what could cause it or its occurrence is not expected in
+    the context it has been written.
     """
 
 
 class InvariantError(Exception):
-    """An error caused by inconsistency in invariants."""
+    """
+    An error caused by a violation of invariants. Invariants include
+    function preconditions, postconditions, constraints on argument
+    types or values, etc.
+    """
 
 
 class NotFoundError(Exception):

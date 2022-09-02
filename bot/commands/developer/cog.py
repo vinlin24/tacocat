@@ -21,6 +21,7 @@ class DeveloperCog(commands.Cog, name="Developer"):
 
     def __init__(self, bot: MyBot) -> None:
         self.bot = bot
+        """Bot instance cog is being loaded on."""
 
     @is_superuser()
     @app_commands.command(name="logs", description="(SUPER) View program logs")
@@ -42,6 +43,27 @@ class DeveloperCog(commands.Cog, name="Developer"):
                         level_choice: Choice[int] | None = None,
                         show_msg: bool = False
                         ) -> None:
+        """View the current contents of a log file.
+
+        If the contents fit within Discord's default message length
+        limit, send it enclosed in code fence markup. If it exceeds the
+        limit, upload the entire .log file as the message.
+
+        Args:
+            interaction (Interaction): Interaction of invoked command.
+            log_choice (Choice[int]): Which log file to view.
+            filter_choice (Choice[int] | None, optional): Filter
+            constraint. Defaults to None.
+            level_choice (Choice[int] | None, optional): Argument for
+            filter constraint. Defaults to None.
+            show_msg (bool, optional): Whether the contents should be
+            displayed for everyone who can view the channel. Defaults
+            to False.
+
+        Invariant:
+            If `send_log_content` param constraint_choice is provided,
+            param level_choice must also be provided. 
+        """
         # Evaluate defaults for optional Choices
 
         # If filter is not provided or it's provided without a level,
@@ -73,6 +95,7 @@ class DeveloperCog(commands.Cog, name="Developer"):
                               interaction: Interaction,
                               exc: app_commands.AppCommandError
                               ) -> None:
+        """Error handler for the /logs command."""
         if isinstance(exc, app_commands.CheckFailure):
             log.warning(
                 f"Unauthorized user {interaction.user} attempted to use the "

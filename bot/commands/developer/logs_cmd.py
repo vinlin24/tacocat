@@ -174,14 +174,6 @@ async def send_log_content(interaction: Interaction,
 
     Backend function for the view_logs callback of the /logs command.
 
-    If the contents fit within Discord's default message length limit,
-    send it enclosed in code fence markup. If it exceeds the limit,
-    upload the entire .log file as the message.
-
-    Raises:
-        InvariantError: Error caused by an implementation/maintenance
-        flaw.
-
     Args:
         ctx (Context): Context of the requesting command.
         log_choice (int): Member of the Logs enum.
@@ -194,6 +186,13 @@ async def send_log_content(interaction: Interaction,
 
     Returns:
         discord.Message: The sent message, if successful.
+
+    Precondition:
+        If param constraint_choice is provided, param level_choice must
+        also be provided. Else, raises InvariantError.
+
+    Postcondition:
+        If no raise, responds to the interaction.
     """
     # Read contents
     log_path = _get_log_path(log_choice)

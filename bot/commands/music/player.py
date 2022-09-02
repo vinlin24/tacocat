@@ -26,9 +26,6 @@ async def _get_track(ctx: Context[MyBot],
                      ) -> Track | None:
     """Get playable track and handle any errors in attempting so.
 
-    If there is any error in obtaining the track, this function will
-    handle responding to the command/interaction and then return None.
-
     Args:
         ctx (Context[MyBot]): Context of command invoked.
         query (str): Command input from caller.
@@ -38,6 +35,10 @@ async def _get_track(ctx: Context[MyBot],
 
     Returns:
         Track | None: The playable audio source. None if unsuccessful.
+
+    Postcondition:
+        Responds to the command/interaction if there is any error in
+        obtaining the track.
     """
     try:
         return await Track.from_query(query, loop, platform=platform)

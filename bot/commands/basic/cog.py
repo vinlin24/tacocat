@@ -16,9 +16,11 @@ class BasicCog(commands.Cog, name="Basic"):
 
     def __init__(self, bot: MyBot) -> None:
         self.bot = bot
+        """Bot instance cog is being loaded on."""
 
     @commands.hybrid_command(name="ping", help="Check bot version and latency")
     async def ping(self, ctx: Context) -> None:
+        """Check bot version and latency."""
         v = self.bot.version
         latency = round(self.bot.latency * 1000)
         content = f"**[{v}]** Yes, I'm here! Bot latency: **{latency}** ms."
@@ -26,7 +28,10 @@ class BasicCog(commands.Cog, name="Basic"):
 
     @app_commands.command(name="help", description="Show help message")
     async def help(self, interaction: Interaction) -> None:
-        # temp, todo in the future
+        """Show help message.
+
+        TODO: This is a placeholder command. Finish it in the future.
+        """
         await interaction.response.send_message(
             "The bot doesn't seem to have a help message set up yet for "
             f"`/help`. In the meantime, use `{self.bot.command_prefix}help`.",

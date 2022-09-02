@@ -2,7 +2,7 @@
 
 Contains package configuration options.
 
-Implementation note: This module should not import any other module
+Implementation NOTE: This module should not import any other module
 within the project package. Naturally, since every other module should
 be able to import from this module, it must be a root of the package's
 dependency graph to prevent import deadlocks.

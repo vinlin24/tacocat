@@ -144,13 +144,12 @@ class MusicCog(commands.Cog, name="Music"):
         Args:
             ctx (Context[MyBot]) Context of invoked command.
 
+        Raises:
+            InvariantError: Function is called from a context (such as
+            a DM) such that `ctx.guild` is None.
+
         Returns:
             Player: Instance for the caller's guild.
-
-        Precondition:
-            This function is called from a guild context (not a DM)
-            such that `ctx.guild` is not None. Else, raises
-            InvariantError.
         """
         guild = ctx.guild
         if guild is None:
