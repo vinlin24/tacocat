@@ -17,8 +17,8 @@ from .config import (BOT_MODE, COMMAND_PREFIX, COMMANDS_DIR_PATH, DEBUG_GUILD,
                      DEVELOPER_USER_ID, GATEWAY_INTENTS, LOG_ALERT_LEVEL,
                      BotMode, __version__)
 from .exceptions import UnexpectedError
-from .logger import log
-from .utils import ErrorEmbed, detail_call, render_timestamp
+from .logger import detail_call, log
+from .utils import ErrorEmbed, render_timestamp
 
 
 class MyBot(commands.Bot):

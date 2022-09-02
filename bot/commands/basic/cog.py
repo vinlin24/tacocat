@@ -8,8 +8,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 from ...client import MyBot
-from ...logger import log
-from ...utils import detail_call
+from ...logger import detail_call, log
 
 
 class BasicCog(commands.Cog, name="Basic"):

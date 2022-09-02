@@ -13,8 +13,8 @@ from discord.ext.commands import Context
 
 from ...client import MyBot
 from ...exceptions import InvariantError, NotApplicableError, NotFoundError
-from ...logger import log
-from ...utils import detail_call, has_humans
+from ...logger import detail_call, format_model, log
+from ...utils import has_humans
 from .config import MusicEmbed, MusicErrorEmbed
 from .tracks import Platform, Track
 
@@ -149,8 +149,7 @@ async def _join_channel(ctx: Context[MyBot],
                                                self_deaf=True)
 
     log.debug(
-        f"{detail_call(ctx)} Successfully joined "
-        f"{_format_voice_channel(channel)}."
+        f"{detail_call(ctx)} Successfully joined {format_model(channel)}."
     )
     return channel
 
