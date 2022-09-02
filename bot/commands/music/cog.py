@@ -3,7 +3,6 @@
 Defines the cog class for the Music command category.
 """
 
-import asyncio
 from typing import Literal
 
 import discord
@@ -12,11 +11,12 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 from ...client import MyBot
-from ...exceptions import InvariantError, NotApplicableError, NotFoundError
+from ...exceptions import InvariantError, NotApplicableError
 from ...logger import detail_call, format_model, log
 from ...utils import has_humans
 from .config import MusicEmbed, MusicErrorEmbed
-from .tracks import Platform, Track
+from .player import Player
+from .tracks import Platform
 
 # ==================== HELPER FUNCTIONS ==================== #
 # For abstracting complex and/or repeated processes in their
@@ -58,32 +58,6 @@ async def _react_either(ctx: Context[MyBot],
         await ctx.send(content=content, embed=embed)
     else:
         await ctx.message.add_reaction(reaction)
-
-
-def _make_np_embed(src: Track) -> MusicEmbed:
-    """Style an embed for the "Now playing" message.
-
-    Args:
-        src (Track): Track that is now playing.
-
-    Returns:
-        MusicEmbed: The styled embed.
-    """
-    embed = MusicEmbed(src.title,
-                       title=f"Now playing from {src.platform.value}",
-                       url=src.url)
-    footer_text = src.artist
-    if src.collab is not None:
-        footer_text += f", {src.collab}"
-    embed.set_footer(text=footer_text)
-    return embed
-
-
-def _format_voice_channel(channel: discord.VoiceChannel) -> str:
-    """Return a logging-friendly representation of a voice channel."""
-    return (f"<VoiceChannel id={channel.id}, name={channel.name!r}>"
-            f"@<Guild id={channel.guild.id}, name="
-            f"{channel.guild.name!r}>")
 
 
 async def _join_channel(ctx: Context[MyBot],
@@ -154,42 +128,6 @@ async def _join_channel(ctx: Context[MyBot],
     return channel
 
 
-async def _get_track(ctx: Context[MyBot],
-                     query: str,
-                     loop: asyncio.AbstractEventLoop,
-                     platform: Platform
-                     ) -> Track | None:
-    """Get playable track and handle any errors in attempting so.
-
-    If there is any error in obtaining the track, this function will
-    handle responding to the command/interaction and then return None.
-
-    Args:
-        ctx (Context[MyBot]): Context of command invoked.
-        query (str): Command input from user.
-        loop (asyncio.AbstractEventLoop): Event loop to execute the
-        process in. Caller should pass in the bot's event loop.
-        platform (Platform): Command input from user.
-
-    Returns:
-        Track | None: The playable audio source. None if unsuccessful.
-    """
-    try:
-        return await Track.from_query(query, loop, platform=platform)
-    except NotFoundError:
-        await ctx.send(embed=MusicErrorEmbed(
-            f"Could not find a track with your query {query!r}."
-        ))
-        return None
-    except ValueError:
-        await ctx.send(embed=MusicErrorEmbed(
-            "An error occurred while trying to find a track with your "
-            f"query {query!r}. If you're searching for a SoundCloud "
-            "resource, please use the URL."
-        ))
-        return None
-
-
 # ==================== COG DEFINITION ==================== #
 
 
@@ -198,6 +136,38 @@ class MusicCog(commands.Cog, name="Music"):
 
     def __init__(self, bot: MyBot) -> None:
         self.bot = bot
+        """Bot instance cog is being loaded on."""
+        self._players: dict[discord.Guild, Player] = {}
+        """Mapping of guild to their guild-specific player instance."""
+
+   # ==================== HELPER METHODS ==================== #
+
+    def get_player(self, ctx: Context[MyBot]) -> Player:
+        """Get the guild-specific Player, creating it if necessary.
+
+        Args:
+            ctx (Context[MyBot]) Context of invoked command.
+
+        Returns:
+            Player: Instance for the caller's guild.
+
+        Precondition:
+            This function is called from a guild context (not a DM)
+            such that ctx.guild is not None. Else, raises
+            InvariantError.
+        """
+        guild = ctx.guild
+        if guild is None:
+            raise InvariantError("get_player() was called from a DM.")
+        try:
+            return self._players[guild]
+        except KeyError:
+            new_player = Player(self.bot, guild)
+            log.debug(f"Created new Player instance {new_player!r}.")
+            self._players[guild] = new_player
+            return new_player
+
+    # ==================== HOOKS AND EVENTS ==================== #
 
     async def cog_before_invoke(self, ctx: Context[MyBot]) -> None:
         """Assert that commands are only called in guilds."""
@@ -213,6 +183,8 @@ class MusicCog(commands.Cog, name="Music"):
         if isinstance(error, NotApplicableError):
             log.warning(f"{type(error).__name__}: {detail_call(ctx)}")
             return
+
+    # ==================== COMMAND CALLBACKS ==================== #
 
     @commands.hybrid_command(name="join", aliases=["connect"], help="Summon bot to a channel")
     @app_commands.describe(channel="Voice channel to join")
@@ -286,6 +258,27 @@ class MusicCog(commands.Cog, name="Music"):
                    platform: Literal["YouTube", "Spotify",
                                      "SoundCloud"] = "YouTube",
                    ) -> None:
+        """Play or queue a track from any supported platform from query.
+
+        Args:
+            ctx (Context[MyBot]): Context of invoked command.
+            query (str): String to submit to platform-specific search,
+            or a URL, in which case the platform is inferred.
+            platform (str, optional): Name of supported platforms to
+            stream from. At the moment, the choices are "YouTube",
+            "Spotify", and "SoundCloud. Defaults to "YouTube".
+
+        Raises:
+            InvariantError: Unexpected arg for param platform.
+
+        Postcondition:
+            Responds to the command/interaction.
+
+        Invariants:
+            - Param platform must be a valid choice.
+            - The context's voice client must be initialized by the
+              time player is used.
+        """
         # In case API calls take too long
         if ctx.interaction:
             await ctx.interaction.response.defer(thinking=True)
@@ -295,7 +288,7 @@ class MusicCog(commands.Cog, name="Music"):
         if channel is None:
             return  # Failed, caller notified
 
-        # Determine platform from hint
+        # Resolve platform from hint
         # NOTE: But if query is a URL, platform will be ignored anyway
         # as part of the design of Track.from_query()
         match (platform):
@@ -308,22 +301,10 @@ class MusicCog(commands.Cog, name="Music"):
             case _:
                 raise InvariantError(f"{platform=} is not a valid choice.")
 
-        # Obtain playable track
-        src = await _get_track(ctx, query, self.bot.loop, p)
-        if src is None:
-            return  # Failed, caller notified
-
-        # Play track: TEMP, DOESN'T SUPPORT QUEUE YET
-        ctx.voice_client.play(src, after=lambda e: (  # type: ignore
-            e and log.error(f"Player error: {e}")
-        ))
-
-        # Success, respond to interaction
-        await ctx.send(embed=_make_np_embed(src))
-        log.debug(
-            f"Now playing {src.title!r} from {src.platform.value} "
-            f"in {_format_voice_channel(channel)}."
-        )
+        # Pass to backend
+        player = self.get_player(ctx)
+        async with channel.typing():
+            await player.play_track(ctx, query, p)
 
 
 async def setup(bot: MyBot) -> None:
