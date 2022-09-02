@@ -19,8 +19,6 @@ from .player import Player
 from .tracks import Platform
 
 # ==================== HELPER FUNCTIONS ==================== #
-# For abstracting complex and/or repeated processes in their
-# respective main processes.
 
 
 async def _react_either(ctx: Context[MyBot],
@@ -153,7 +151,7 @@ class MusicCog(commands.Cog, name="Music"):
 
         Precondition:
             This function is called from a guild context (not a DM)
-            such that ctx.guild is not None. Else, raises
+            such that `ctx.guild` is not None. Else, raises
             InvariantError.
         """
         guild = ctx.guild
@@ -170,7 +168,10 @@ class MusicCog(commands.Cog, name="Music"):
     # ==================== HOOKS AND EVENTS ==================== #
 
     async def cog_before_invoke(self, ctx: Context[MyBot]) -> None:
-        """Assert that commands are only called in guilds."""
+        """Assert that commands are only called in guilds.
+
+        TODO: I don't think this works.
+        """
         if ctx.guild is None:
             raise NotApplicableError(
                 "Music commands are only applicable in guilds.")
@@ -185,6 +186,14 @@ class MusicCog(commands.Cog, name="Music"):
             return
 
     # ==================== COMMAND CALLBACKS ==================== #
+    # NOTE: Because all slash commands expect a response, hybrid
+    # command callbacks must all have the postcondition that it
+    # responds in some way upon termination, whether it be explicitly
+    # in the callback or by postcondition of a helper function, such as
+    # those in a Player instance. The helper function `_react_either`
+    # can be used as a shortcut for responding with a traditional emoji
+    # reaction on a text command and text/embed as the interaction
+    # response to a slash command.
 
     @commands.hybrid_command(name="join", aliases=["connect"], help="Summon bot to a channel")
     @app_commands.describe(channel="Voice channel to join")
@@ -193,6 +202,14 @@ class MusicCog(commands.Cog, name="Music"):
                    *,
                    channel: discord.VoiceChannel | None = None  # type: ignore
                    ) -> None:
+        """Connect to the requested channel, or the caller's channel.
+
+        Args:
+            ctx (Context[MyBot]): Context of invoked command.
+            channel (VoiceChannel | None, optional): Voice channel to
+            join. Defaults to None, in which case, attempt to use the
+            voice channel the caller is currently in.
+        """
         channel = await _join_channel(ctx, channel)
         if channel is None:
             return  # Failed, caller notified
@@ -202,6 +219,17 @@ class MusicCog(commands.Cog, name="Music"):
 
     @commands.hybrid_command(name="pause", help="Pauses the player.")
     async def pause(self, ctx: Context[MyBot]) -> None:
+        """Pause the player if it is currently playing.
+
+        Because `VoiceClient.pause()` is idempotent, /pause is as well.
+        Repeated invocations should not change the state of the voice
+        client.
+
+        Since `ctx.voice_client` is a shortcut for
+        `Guild::voice_client`, this callback does not actually need to
+        touch the guild player instance.
+        """
+        log.debug(detail_call(ctx))
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
@@ -217,6 +245,17 @@ class MusicCog(commands.Cog, name="Music"):
 
     @commands.hybrid_command(name="resume", help="Resumes the player.")
     async def resume(self, ctx: Context[MyBot]) -> None:
+        """Resume the player if it is currently playing.
+
+        Because `VoiceClient.resume()` is idempotent, /resume is as
+        well. Repeated invocations should not change the state of the
+        voice client.
+
+        Since `ctx.voice_client` is a shortcut for
+        `Guild::voice_client`, this callback does not actually need to
+        touch the guild player instance.
+        """
+        log.debug(detail_call(ctx))
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
@@ -232,7 +271,12 @@ class MusicCog(commands.Cog, name="Music"):
 
     @commands.hybrid_command(name="skip", aliases=["next"], help="Skip the current track")
     async def skip(self, ctx: Context[MyBot]) -> None:
-        # TODO: finish later, this is for easier testing
+        """Skip the currently playing track.
+
+        TODO: This is an incomplete command as the queue system has not
+        been implemented yet. This primitive implementation has been
+        included for now for easier testing.
+        """
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
@@ -270,9 +314,6 @@ class MusicCog(commands.Cog, name="Music"):
 
         Raises:
             InvariantError: Unexpected arg for param platform.
-
-        Postcondition:
-            Responds to the command/interaction.
 
         Invariants:
             - Param platform must be a valid choice.
