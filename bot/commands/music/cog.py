@@ -12,7 +12,7 @@ from discord.ext.commands import Context
 
 from ...client import MyBot
 from ...exceptions import InvariantError, NotApplicableError
-from ...logger import detail_call, format_model, log
+from ...logger import format_model, log
 from ...utils import has_humans
 from .config import MusicEmbed, MusicErrorEmbed
 from .player import Player
@@ -120,9 +120,7 @@ async def _join_channel(ctx: Context[MyBot],
         await channel.guild.change_voice_state(channel=channel,
                                                self_deaf=True)
 
-    log.debug(
-        f"{detail_call(ctx)} Successfully joined {format_model(channel)}."
-    )
+    log.debug(f"Successfully joined {format_model(channel)}.")
     return channel
 
 
@@ -182,7 +180,7 @@ class MusicCog(commands.Cog, name="Music"):
                                 ) -> None:
         """Cog-specific command error handler."""
         if isinstance(error, NotApplicableError):
-            log.warning(f"{type(error).__name__}: {detail_call(ctx)}")
+            log.warning(f"{type(error).__name__}: {error}")
             return
 
     # ==================== COMMAND CALLBACKS ==================== #
@@ -229,7 +227,6 @@ class MusicCog(commands.Cog, name="Music"):
         `Guild::voice_client`, this callback does not actually need to
         touch the guild player instance.
         """
-        log.debug(detail_call(ctx))
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
@@ -255,7 +252,6 @@ class MusicCog(commands.Cog, name="Music"):
         `Guild::voice_client`, this callback does not actually need to
         touch the guild player instance.
         """
-        log.debug(detail_call(ctx))
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")

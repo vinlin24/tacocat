@@ -4,7 +4,7 @@ Set up the program and expose package namespace.
 """
 
 # Import effect: defines the bot class
-from .client import MyBot
+from .client import MyBot, before_invoke_hook
 # Import effect: loads config variables from environment variables
 from .config import (BOT_MODE, BOT_TOKEN, DEBUG_VERBOSE, PROJECT_NAME,
                      __version__)
@@ -22,6 +22,9 @@ __all__ = (
 
 bot = MyBot()
 """Configured Discord bot client instance ready to be run()."""
+
+# Register hook
+bot.before_invoke(before_invoke_hook)
 
 bot_run_kwargs = {
     "token": BOT_TOKEN,

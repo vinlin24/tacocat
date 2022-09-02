@@ -1,6 +1,9 @@
 """client.py
 
 Defines the bot, handles its initialization, and registers events.
+
+NOTE: Due to a limitation when subclassing Bot, this module also
+exposes hooks to be externally registered in the main process.
 """
 
 import os
@@ -144,6 +147,11 @@ class MyBot(commands.Bot):
         # Get the my DM, creating it if it doesn't exist yet
         dm = user.dm_channel or await user.create_dm()
         return await dm.send(content, **send_kwargs)
+
+
+async def before_invoke_hook(ctx: Context[MyBot]) -> None:
+    """Coroutine to register with `Bot.before_invoke`."""
+    log.debug(detail_call(ctx))
 
 
 async def _load_bot_extensions(bot: MyBot) -> None:

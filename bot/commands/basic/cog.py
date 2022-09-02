@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 from ...client import MyBot
-from ...logger import detail_call, log
+from ...logger import log
 
 
 class BasicCog(commands.Cog, name="Basic"):
@@ -19,7 +19,6 @@ class BasicCog(commands.Cog, name="Basic"):
 
     @commands.hybrid_command(name="ping", help="Check bot version and latency")
     async def ping(self, ctx: Context) -> None:
-        log.debug(detail_call(ctx))
         v = self.bot.version
         latency = round(self.bot.latency * 1000)
         content = f"**[{v}]** Yes, I'm here! Bot latency: **{latency}** ms."

@@ -325,7 +325,8 @@ def _raise_stream_not_found(track: tekore.model.FullTrack) -> NoReturn:
 
     Raises:
         NotFoundError: Param track failed to get a stream URL from
-        youtube-dl."""
+        youtube-dl.
+    """
     raise NotFoundError(
         "Could not find a YouTube stream URL for the Spotify track with "
         f"id={track.id!r} (name={track.name!r}). Either the query did "

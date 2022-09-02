@@ -10,7 +10,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 from ...client import MyBot
-from ...logger import detail_call, log
+from ...logger import log
 from ...utils import ErrorEmbed, is_dev, is_superuser
 from .logs_cmd import (FILTER_CHOICES, LEVEL_CHOICES, LOG_CHOICES, Constraints,
                        send_log_content)
