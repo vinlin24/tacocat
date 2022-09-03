@@ -142,7 +142,13 @@ def _format_text_channel(channel: discord.TextChannel) -> str:
             f"@{_format_guild(channel.guild)}")
 
 
-def format_model(model: discord.abc.Snowflake) -> str:
+DiscordModel = (discord.abc.Connectable | discord.abc.GuildChannel
+                | discord.abc.Messageable | discord.abc.PrivateChannel
+                | discord.abc.Snowflake | discord.abc.User)
+"""Type hint for abstract base classes of the discord.py library."""
+
+
+def format_model(model: DiscordModel | None) -> str:
     """Return log-friendly representation for certain Discord models."""
     if isinstance(model, discord.Guild):
         return _format_guild(model)
@@ -150,5 +156,8 @@ def format_model(model: discord.abc.Snowflake) -> str:
         return _format_voice_channel(model)
     if isinstance(model, discord.TextChannel):
         return _format_text_channel(model)
+    # I suppose this could be common/expected
+    if model is None:
+        return "<None>"
     # Undefined by this function, use its predefined __str__
     return str(model)

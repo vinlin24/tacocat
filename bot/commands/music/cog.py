@@ -113,17 +113,22 @@ class MusicCog(commands.Cog, name="Music"):
 
         Returns:
             Player: Instance for the caller's guild.
+
+        Postcondition:
+            If the player already exists, update its `text_channel`
+            property to the caller's text channel.
         """
         guild = ctx.guild
         if guild is None:
             raise InvariantError("get_player() was called from a DM.")
         try:
-            return self._players[guild]
+            player = self._players[guild]
+            player.text_channel = ctx.channel
         except KeyError:
-            new_player = Player(ctx)
-            log.debug(f"Created new instance {new_player!r}.")
-            self._players[guild] = new_player
-            return new_player
+            player = Player(ctx)
+            log.debug(f"Created new instance {player!r}.")
+            self._players[guild] = player
+        return player
 
     # ==================== HOOKS AND EVENTS ==================== #
 
@@ -231,9 +236,12 @@ class MusicCog(commands.Cog, name="Music"):
     async def skip(self, ctx: Context[MyBot]) -> None:
         """Skip the currently playing track.
 
-        TODO: This is an incomplete command as the queue system has not
-        been implemented yet. This primitive implementation has been
-        included for now for easier testing.
+        `VoiceClient.stop()` automatically causes the player's internal
+        player loop to play the next track.
+
+        Since `ctx.voice_client` is a shortcut for
+        `Guild::voice_client`, this callback does not actually need to
+        touch the guild player instance.
         """
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
