@@ -272,7 +272,7 @@ class Player:
             return
 
         # Play the track
-        self.vc.play(track, after=lambda e: (
+        self.vc.play(track.get_playable(), after=lambda e: (
             e and log.error(f"{self} play() error:\n{traceback.format_exc()}")
         ))
 

@@ -1,7 +1,7 @@
 """tracks.py
 
-Implements the Track class, which represents a playable audio source on
-Discord. These objects make all the external API calls to the
+Implements the Track class, which represents an audio track to be
+played on Discord. These objects make all the external API calls to the
 streaming libraries. This module is responsible for initializing such
 instances, defining their interface, and maintaining their state.
 """
@@ -74,8 +74,8 @@ soundcloud = sclib.SoundcloudAPI()
 # ==================== TRACK DEFINITION ==================== #
 
 
-class Track(discord.PCMVolumeTransformer):
-    """Represents an audio track that can be played on Discord."""
+class Track:
+    """Represents an audio track to be played on Discord."""
 
     def __init__(self,
                  platform: Platform,
@@ -104,10 +104,6 @@ class Track(discord.PCMVolumeTransformer):
         self._collab = collab
         self._url = url
         self._stream_url = stream_url
-
-        # Construct audio source from stream URL
-        audiosource = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
-        super().__init__(audiosource)
 
     @property
     def platform(self) -> Platform:
@@ -138,6 +134,20 @@ class Track(discord.PCMVolumeTransformer):
     def stream_url(self) -> str:
         """Source URL for the audio stream."""
         return self._stream_url
+
+    def get_playable(self) -> discord.PCMVolumeTransformer:
+        """Return an audio source to be passed to `VoiceClient::play`.
+
+        Postcondition:
+            Every call to this function returns a distinct audio source
+            instance despite it representing the same Track. This is
+            because the discord.py library runs cleanup code on the
+            audio source instance when it is finished playing, setting
+            it to a bad state, unavailable for reuse.
+        """
+        audiosource = discord.FFmpegPCMAudio(self.stream_url,
+                                             **FFMPEG_OPTIONS)
+        return discord.PCMVolumeTransformer(audiosource)
 
     @classmethod
     async def from_query(cls,
