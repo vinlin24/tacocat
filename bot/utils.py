@@ -10,8 +10,10 @@ from typing import Callable
 import discord
 from discord import Interaction, app_commands
 from discord.ext import commands
+from discord.ext.commands import Context
 
 from .config import DEVELOPER_USER_ID, SUPERUSER_USER_IDS
+from .exceptions import InvariantError
 
 MESSAGE_LENGTH_LIMIT = 2000
 """Default Discord message length limit in characters."""
@@ -95,3 +97,40 @@ class ErrorEmbed(discord.Embed):
 def has_humans(channel: discord.VoiceChannel) -> bool:
     """Whether channel currently has nonzero bots connected to it."""
     return any(not member.bot for member in channel.members)
+
+
+async def react_either(ctx: Context,
+                       *,
+                       reaction: str = "✅",
+                       content: str | None = None,
+                       embed: discord.Embed | None = None,
+                       ) -> None:
+    """Respond to a hybrid command based on how it was invoked.
+
+    This helper is motivated by the fact that conventional reaction
+    responses do not count as an Interaction response for application
+    commands, so a traditional message is needed.
+
+    Raises:
+        InvariantError: Neither content nor embed was provided.
+
+    Args:
+        ctx (Context): Context of hybrid command.
+        reaction (str, optional): Emoji to react with if command was
+        invoked as a text command. Defaults to "✅".
+        content (str | None, optional): Text to send if command was
+        invoked as a slash command. Defaults to None.
+        embed (discord.Embed | None, optional): Embed to send if
+        command was invoked as a slash command. Both content and embed
+        can be provided simultaneously, and at least one of the two
+        must be provided. Defaults to None.
+    """
+    if ctx.interaction:
+        if content is None and embed is None:
+            raise InvariantError(
+                "Either or both arguments content and embed must be "
+                "provided, but both were None."
+            )
+        await ctx.send(content=content, embed=embed)
+    else:
+        await ctx.message.add_reaction(reaction)

@@ -13,49 +13,12 @@ from discord.ext.commands import Context
 from ...client import MyBot
 from ...exceptions import InvariantError, NotApplicableError
 from ...logger import format_model, log
-from ...utils import has_humans
+from ...utils import has_humans, react_either
 from .config import MusicEmbed, MusicErrorEmbed
 from .player import Player
 from .tracks import Platform
 
 # ==================== HELPER FUNCTIONS ==================== #
-
-
-async def _react_either(ctx: Context[MyBot],
-                        *,
-                        reaction: str = "✅",
-                        content: str | None = None,
-                        embed: discord.Embed | None = None,
-                        ) -> None:
-    """Respond to a hybrid command based on how it was invoked.
-
-    This helper is motivated by the fact that conventional reaction
-    responses do not count as an Interaction response for application
-    commands, so a traditional message is needed.
-
-    Raises:
-        InvariantError: Neither content nor embed was provided.
-
-    Args:
-        ctx (Context[MyBot]): Context of hybrid command.
-        reaction (str, optional): Emoji to react with if command was
-        invoked as a text command. Defaults to "✅".
-        content (str | None, optional): Text to send if command was
-        invoked as a slash command. Defaults to None.
-        embed (discord.Embed | None, optional): Embed to send if
-        command was invoked as a slash command. Both content and embed
-        can be provided simultaneously, and at least one of the two
-        must be provided. Defaults to None.
-    """
-    if ctx.interaction:
-        if content is None and embed is None:
-            raise InvariantError(
-                "Either or both arguments content and embed must be "
-                "provided, but both were None."
-            )
-        await ctx.send(content=content, embed=embed)
-    else:
-        await ctx.message.add_reaction(reaction)
 
 
 async def _join_channel(ctx: Context[MyBot],
@@ -157,8 +120,8 @@ class MusicCog(commands.Cog, name="Music"):
         try:
             return self._players[guild]
         except KeyError:
-            new_player = Player(self.bot, guild)
-            log.debug(f"Created new Player instance {new_player!r}.")
+            new_player = Player(ctx)
+            log.debug(f"Created new instance {new_player!r}.")
             self._players[guild] = new_player
             return new_player
 
@@ -187,7 +150,7 @@ class MusicCog(commands.Cog, name="Music"):
     # command callbacks must all have the postcondition that it
     # responds in some way upon termination, whether it be explicitly
     # in the callback or by postcondition of a helper function, such as
-    # those in a Player instance. The helper function `_react_either`
+    # those in a Player instance. The helper function `react_either`
     # can be used as a shortcut for responding with a traditional emoji
     # reaction on a text command and text/embed as the interaction
     # response to a slash command.
@@ -212,7 +175,7 @@ class MusicCog(commands.Cog, name="Music"):
             return  # Failed, caller notified
 
         embed = MusicEmbed(f"Connected to channel {channel.mention}.")
-        await _react_either(ctx, reaction="👌", embed=embed)
+        await react_either(ctx, reaction="👌", embed=embed)
 
     @commands.hybrid_command(name="pause", help="Pauses the player.")
     async def pause(self, ctx: Context[MyBot]) -> None:
@@ -229,15 +192,15 @@ class MusicCog(commands.Cog, name="Music"):
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
-            await _react_either(ctx,
-                                embed=embed,
-                                reaction="❓")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="❓")
         else:
             vc.pause()
             embed = MusicEmbed("Player paused.")
-            await _react_either(ctx,
-                                embed=embed,
-                                reaction="⏸️")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="⏸️")
 
     @commands.hybrid_command(name="resume", help="Resumes the player.")
     async def resume(self, ctx: Context[MyBot]) -> None:
@@ -254,15 +217,15 @@ class MusicCog(commands.Cog, name="Music"):
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
-            await _react_either(ctx,
-                                embed=embed,
-                                reaction="❓")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="❓")
         else:
             vc.resume()
             embed = MusicEmbed("Player resumed.")
-            await _react_either(ctx,
-                                embed=embed,
-                                reaction="▶️")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="▶️")
 
     @commands.hybrid_command(name="skip", aliases=["next"], help="Skip the current track")
     async def skip(self, ctx: Context[MyBot]) -> None:
@@ -275,15 +238,15 @@ class MusicCog(commands.Cog, name="Music"):
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
-            await _react_either(ctx,
-                                embed=embed,
-                                reaction="❓")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="❓")
         else:
             vc.stop()
             embed = MusicEmbed("Track skipped.")
-            await _react_either(ctx,
-                                embed=embed,
-                                reaction="⏭️")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="⏭️")
 
     @commands.hybrid_command(name="play", aliases=["p"], help="Queue a track from query")
     @app_commands.describe(
