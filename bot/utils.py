@@ -124,6 +124,9 @@ async def react_either(ctx: Context,
         command was invoked as a slash command. Both content and embed
         can be provided simultaneously, and at least one of the two
         must be provided. Defaults to None.
+
+    Postcondition:
+        Responds to the command/interaction.
     """
     if ctx.interaction:
         if content is None and embed is None:

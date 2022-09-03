@@ -179,8 +179,29 @@ class MusicCog(commands.Cog, name="Music"):
         if channel is None:
             return  # Failed, caller notified
 
-        embed = MusicEmbed(f"Connected to channel {channel.mention}.")
-        await react_either(ctx, reaction="👌", embed=embed)
+        # Pass to backend
+        player = self.get_player(ctx)
+        await player.after_connect(ctx)
+
+    @commands.hybrid_command(name="leave", aliases=["disconnect", "dc"], help="Disconnect bot from voice")
+    async def leave(self, ctx: Context[MyBot]) -> None:
+        """Disconnect from voice in caller's guild."""
+        # TODO: checks
+        vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
+        if vc is None or not vc.is_connected():
+            embed = MusicErrorEmbed("Player is not connected to voice.")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="❓")
+        else:
+            # vc.disconnect() directly causes unwanted side-effects on queue
+            # Pass to backend instead
+            player = self.get_player(ctx)
+            await player.disconnect_player()
+            embed = MusicEmbed("Player disconnected.")
+            await react_either(ctx,
+                               embed=embed,
+                               reaction="👋")
 
     @commands.hybrid_command(name="pause", help="Pauses the player.")
     async def pause(self, ctx: Context[MyBot]) -> None:
@@ -194,6 +215,7 @@ class MusicCog(commands.Cog, name="Music"):
         `Guild::voice_client`, this callback does not actually need to
         touch the guild player instance.
         """
+        # TODO: checks
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")
@@ -219,6 +241,7 @@ class MusicCog(commands.Cog, name="Music"):
         `Guild::voice_client`, this callback does not actually need to
         touch the guild player instance.
         """
+        # TODO: checks
         vc: discord.VoiceClient | None = ctx.voice_client  # type: ignore
         if vc is None:
             embed = MusicErrorEmbed("Player is not playing anything.")

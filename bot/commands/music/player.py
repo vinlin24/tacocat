@@ -6,6 +6,7 @@ for managing the state of the guild's queue.
 """
 
 import asyncio
+import traceback
 
 import discord
 from discord.ext.commands import Context
@@ -198,9 +199,13 @@ class Player:
         """
         if self._loop_task.done():
             self._loop_task = self.bot.loop.create_task(self.run_player_loop())
+            log.debug(f"Created new loop for {self}.")
 
     def _get_next_track(self) -> Track | None:
         """Get the next track to play and update _pos appropriately.
+
+        Raises:
+            InvariantError: _pos is not within the allowed range.
 
         Returns:
             Track | None: The track currently referenced by the
@@ -210,6 +215,11 @@ class Player:
         Postcondition:
             self._pos is updated only if a track can be returned.
         """
+        if not (0 <= self._pos <= len(self._queue)):
+            raise InvariantError(
+                "self._pos must be at least 0 and at most len(self._queue) "
+                f"== {len(self._queue)}, but it was {self._pos} instead."
+            )
         try:
             track = self._queue[self._pos]
         except IndexError:
@@ -263,7 +273,7 @@ class Player:
 
         # Play the track
         self.vc.play(track, after=lambda e: (
-            e and log.error(f"{self} {type(e).__name__!r}: {e}")
+            e and log.error(f"{self} play() error:\n{traceback.format_exc()}")
         ))
 
         # Update the "Now playing" message
@@ -306,6 +316,43 @@ class Player:
 
     # ==================== COMMAND BACKENDS ==================== #
 
+    async def after_connect(self, ctx: Context[MyBot]) -> None:
+        """Code to run after the player connects via /join.
+
+        Args:
+            ctx (Context[MyBot]) Context of invoked command.
+
+        Precondition:
+            Uses self.vc, so it must be initialized. Else, raises
+            InvariantError.
+
+        Postcondition:
+            Responds to the command/interaction.
+        """
+        # This makes the player "revive" the loop in the case of reconnecting
+        self._schedule_loop()
+
+        # Respond
+        embed = MusicEmbed(f"Connected to channel {self.vc.channel.mention}.")
+        await react_either(ctx, reaction="👌", embed=embed)
+
+    async def disconnect_player(self) -> None:
+        """Disconnect the player.
+
+        Precondition:
+            Uses self.vc, so it must be initialized. Else, raises
+            InvariantError.
+
+        Postcondition:
+            Sets self._pos to the track that was playing before the bot
+            is disconnected.
+        """
+        # Bring position back one track so reconnecting plays the track
+        # that was previously playing
+        if self._pos > 0:
+            self._pos -= 1
+        await self.vc.disconnect()
+
     async def play_track(self,
                          ctx: Context[MyBot],
                          query: str,
@@ -342,4 +389,4 @@ class Player:
         self._schedule_loop()
 
         # Success, respond to interaction
-        await react_either(ctx, embed=_make_queued_embed(track))
+        await ctx.send(embed=_make_queued_embed(track))
