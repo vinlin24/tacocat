@@ -234,6 +234,9 @@ def _infer_from_url(string: str) -> Platform | None:
         Platform | None: The platform the URL corresponds to. None if
         string is not a URL or is an unrecognized pattern.
     """
+    # Discord markup allows users to wrap URL in <> to suppress embeds
+    string = string.lstrip("<").rstrip(">")
+
     # These regex are mutually exclusive, so an if ladder should be fine
     if youtube_pattern.match(string):
         log.debug(f"{string=} matched YOUTUBE_REGEX.")
