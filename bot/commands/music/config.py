@@ -7,6 +7,14 @@ import os
 
 import discord
 
+from ...config import AbsPath
+
+# ==================== COG LOGGER ==================== #
+
+MUSIC_LOGS_DIR_PATH = AbsPath("../../logs/music/")
+"""Absolute path to the logs subdirectory set aside for the Music cog."""
+
+
 # ==================== AUDIO OPTIONS ==================== #
 
 YTDL_FORMAT_OPTIONS = {

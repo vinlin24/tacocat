@@ -77,7 +77,10 @@ class MyBot(commands.Bot):
 
     async def on_ready(self) -> None:
         """Event listener for when bot is finished setting up."""
-        log.log(LOG_ALERT_LEVEL, "Bot is ready!")
+        log.log(
+            LOG_ALERT_LEVEL,
+            f"Bot is ready! Version {self.version}, {self.bot_mode.name} mode."
+        )
         # Try to notify developer for more convenient testing
         if self.debug_verbose:
             timestamp = render_timestamp(datetime.now())

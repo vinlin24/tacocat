@@ -6,6 +6,7 @@ for managing the state of the guild's queue.
 """
 
 import asyncio
+import logging
 import traceback
 
 import discord
@@ -13,9 +14,9 @@ from discord.ext.commands import Context
 
 from ...client import MyBot
 from ...exceptions import InvariantError, NotFoundError
-from ...logger import format_model, log
 from ...utils import react_either
 from .config import MusicEmbed, MusicErrorEmbed
+from .logger import format_model, logs
 from .playlists import Playlist, QueueContext
 from .tracks import Platform, Track
 
@@ -25,6 +26,7 @@ from .tracks import Platform, Track
 async def _get_track(ctx: Context[MyBot],
                      query: str,
                      loop: asyncio.AbstractEventLoop,
+                     guild_log: logging.Logger,
                      platform: Platform
                      ) -> Track | None:
     """Get playable track and handle any errors in attempting so.
@@ -34,6 +36,7 @@ async def _get_track(ctx: Context[MyBot],
         query (str): Command input from caller.
         loop (asyncio.AbstractEventLoop): Event loop to execute the
         process in. Caller should pass in the bot's event loop.
+        guild_log (logging.Logger): Guild-specific log to log to.
         platform (Platform): Command input from caller.
 
     Returns:
@@ -44,7 +47,10 @@ async def _get_track(ctx: Context[MyBot],
         obtaining the track.
     """
     try:
-        return await Track.from_query(query, loop, platform=platform)
+        return await Track.from_query(query,
+                                      loop,
+                                      guild_log,
+                                      platform=platform)
     except NotFoundError:
         await ctx.send(embed=MusicErrorEmbed(
             f"Could not find a track with your query {query!r}."
@@ -102,6 +108,7 @@ class Player:
         # Public properties
         self._bot = ctx.bot
         self._guild: discord.Guild = ctx.guild  # type: ignore
+        self._log = logs[self._guild]  # type: ignore
         self._text_channel = ctx.channel
 
         # Internal variables to manage state of guild queue
@@ -151,6 +158,11 @@ class Player:
         return self._guild
 
     @property
+    def log(self) -> logging.Logger:
+        """Music cog log file for player's specific guild."""
+        return self._log
+
+    @property
     def text_channel(self) -> discord.abc.Messageable:
         """Text channel player should send messages to.
 
@@ -163,7 +175,7 @@ class Player:
     @text_channel.setter
     def text_channel(self, new_channel: discord.abc.Messageable) -> None:
         self._text_channel = new_channel
-        log.debug(f"{self} is now bound to {format_model(new_channel)}.")
+        self.log.debug(f"{self} is now bound to {format_model(new_channel)}.")
 
     @property
     def vc(self) -> discord.VoiceClient:
@@ -199,7 +211,7 @@ class Player:
         """
         if self._loop_task.done():
             self._loop_task = self.bot.loop.create_task(self.run_player_loop())
-            log.debug(f"Created new loop for {self}.")
+            self.log.debug(f"Created new loop for {self}.")
 
     def _get_next_track(self) -> Track | None:
         """Get the next track to play and update _pos appropriately.
@@ -273,12 +285,13 @@ class Player:
 
         # Play the track
         self.vc.play(track.get_playable(), after=lambda e: (
-            e and log.error(f"{self} play() error:\n{traceback.format_exc()}")
+            e and self.log.error(
+                f"{self} play() error:\n{traceback.format_exc()}")
         ))
 
         # Update the "Now playing" message
         await self._update_np_message(_make_np_embed(track))
-        log.info(
+        self.log.info(
             f"Now playing {track.title!r} from {track.platform.value} "
             f"in {format_model(self.vc.channel)}."
         )
@@ -305,12 +318,13 @@ class Player:
                 await asyncio.sleep(0.5)  # Lend execution
         # TODO: From self.vc access, should probably make more specialized
         except InvariantError:
-            log.debug(f"Guild::voice_client of {self} now None, broke loop.")
+            self.log.debug(
+                f"Guild::voice_client of {self} now None, broke loop.")
         except Exception:
-            log.exception(f"Unexpected error in the loop of {self}.")
+            self.log.exception(f"Unexpected error in the loop of {self}.")
         finally:
             self._loop_task.cancel()
-            log.debug(f"Player loop canceled in {self}.")
+            self.log.debug(f"Player loop canceled in {self}.")
             # Delete lingering "Now playing" message
             await self._update_np_message(None)
 
@@ -374,13 +388,13 @@ class Player:
             Responds to the command/interaction.
         """
         # Get audio source
-        track = await _get_track(ctx, query, self.bot.loop, platform)
+        track = await _get_track(ctx, query, self.bot.loop, self.log, platform)
         if track is None:
             return  # Failed, caller notified
 
         # Enqueue the track
         self._queue.append(track)
-        log.info(
+        self.log.info(
             f"Queued {track.title!r} from {track.platform.value} in "
             f"{format_model(ctx.guild)}."
         )

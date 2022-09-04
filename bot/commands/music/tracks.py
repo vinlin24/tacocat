@@ -9,6 +9,7 @@ instances, defining their interface, and maintaining their state.
 import asyncio
 import enum
 import re
+from logging import Logger
 from typing import Any, NoReturn
 
 import discord
@@ -20,6 +21,7 @@ from ...exceptions import InvariantError, NotFoundError
 from ...logger import log
 from .config import (FFMPEG_OPTIONS, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET,
                      YTDL_FORMAT_OPTIONS)
+from .logger import logs
 
 # ==================== PLATFORMS ==================== #
 
@@ -153,6 +155,7 @@ class Track:
     async def from_query(cls,
                          query_or_url: str,
                          loop: asyncio.AbstractEventLoop,
+                         guild_log: Logger,
                          platform: Platform = Platform.YOUTUBE,
                          ) -> "Track":
         """Asynchronously construct a track object from a query string.
@@ -166,6 +169,7 @@ class Track:
             for SoundCloud tracks.
             loop (AbstractEventLoop): Event loop to execute query in.
             Caller should pass in the bot's event loop.
+            guild_log (Logger): Guild-specific log to log to.
             platform (Platform, optional): Platform to search the query
             on. Defaults to Platform.YOUTUBE. Ignored if a valid URL is
             used, in which case, it is overriden with the appropriate
@@ -182,7 +186,7 @@ class Track:
             Track: Initialized class instance if successful.
         """
         # Test if input string is a recognized URL
-        test = _infer_from_url(query_or_url)
+        test = _infer_from_url(query_or_url, guild_log)
         if test is not None:
             platform = test
 
@@ -217,18 +221,19 @@ class Track:
                 )
 
         # Run helper asynchronously
-        log.debug(f"Running helper {func.__name__!r}...")
-        return await loop.run_in_executor(None, func, query_or_url)
+        guild_log.debug(f"Running helper {func.__name__!r}...")
+        return await loop.run_in_executor(None, func, query_or_url, guild_log)
 
 
 # ==================== HELPER FUNCTIONS ==================== #
 
 
-def _infer_from_url(string: str) -> Platform | None:
+def _infer_from_url(string: str, guild_log: Logger) -> Platform | None:
     """Infer the platform from a URL pattern.
 
     Args:
         string (str): The string to test as a URL.
+        guild_log (Logger): Guild-specific log to log to.
 
     Returns:
         Platform | None: The platform the URL corresponds to. None if
@@ -239,19 +244,19 @@ def _infer_from_url(string: str) -> Platform | None:
 
     # These regex are mutually exclusive, so an if ladder should be fine
     if youtube_pattern.match(string):
-        log.debug(f"{string=} matched YOUTUBE_REGEX.")
+        guild_log.debug(f"{string=} matched YOUTUBE_REGEX.")
         return Platform.YOUTUBE
     if spotify_pattern.match(string):
-        log.debug(f"{string=} matched SPOTIFY_REGEX.")
+        guild_log.debug(f"{string=} matched SPOTIFY_REGEX.")
         return Platform.SPOTIFY
     if soundcloud_pattern.match(string):
-        log.debug(f"{string=} matched SOUNDCLOUD_REGEX.")
+        guild_log.debug(f"{string=} matched SOUNDCLOUD_REGEX.")
         return Platform.SOUNDCLOUD
 
-    log.debug(f"{string=} did not match any regex.")
+    guild_log.debug(f"{string=} did not match any regex.")
 
 
-def _get_info_dict(query: str) -> dict | None:
+def _get_info_dict(query: str, guild_log: Logger) -> dict | None:
     """Get youtube-dl info dict from query.
 
     This function should not raise anything. It is the responsibility
@@ -260,6 +265,7 @@ def _get_info_dict(query: str) -> dict | None:
 
     Args:
         query (str): Query string to submit to Youtube search.
+        guild_log (Logger): Guild-specific log to log to.
 
     Returns:
         dict | None: youtube-dl info dict of the first video returned
@@ -270,11 +276,12 @@ def _get_info_dict(query: str) -> dict | None:
     try:
         data = ytdl.extract_info(query, download=False)
     except Exception:
-        log.exception(f"Failed to extract YouTube info from {query=}")
+        guild_log.exception(f"Failed to extract YouTube info from {query=}")
         return None
 
     if data is None:
-        log.warning(f"Could not get data about YouTube video with {query=}.")
+        guild_log.warning(
+            f"Could not get data about YouTube video with {query=}.")
         return None
 
     # Take first item if query returns a playlist
@@ -284,7 +291,8 @@ def _get_info_dict(query: str) -> dict | None:
     return data
 
 
-def _unpack_spotify_track(track: tekore.model.FullTrack
+def _unpack_spotify_track(track: tekore.model.FullTrack,
+                          guild_log: Logger,
                           ) -> dict[str, Any] | None:
     """Prepare track attributes from a tekore Track model.
 
@@ -294,6 +302,7 @@ def _unpack_spotify_track(track: tekore.model.FullTrack
 
     Args:
         track (FullTrack): tekore track model instance.
+        guild_log (Logger): Guild-specific log to log to.
 
     Returns:
         dict | None: Keyword arguments that can be passed directly to
@@ -314,7 +323,7 @@ def _unpack_spotify_track(track: tekore.model.FullTrack
 
     # Get YouTube info about track using as precise a search as possible
     query = f"{title} {artist} {'' if collab is None else collab}"
-    data = _get_info_dict(query)
+    data = _get_info_dict(query, guild_log)
     if data is None:
         return None  # Failed
     stream_url: str = data["url"]
@@ -350,12 +359,13 @@ def _raise_stream_not_found(track: tekore.model.FullTrack) -> NoReturn:
 # ==================== FACTORY FUNCTIONS ==================== #
 
 
-def make_youtube_track(query_or_url: str) -> Track:
+def make_youtube_track(query_or_url: str, guild_log: Logger) -> Track:
     """Construct a YouTube track instance from a query or URL.
 
     Args:
         query_or_url (str): Query to submit to YouTube search or a full
         YouTube video link URL.
+        guild_log (Logger): Guild-specific log to log to.
 
     Raises:
         NotFoundError: Failed to extract info with youtube-dl.
@@ -364,7 +374,7 @@ def make_youtube_track(query_or_url: str) -> Track:
         Track: Track instance from the YouTube platform.
     """
     # API call
-    data = _get_info_dict(query_or_url)
+    data = _get_info_dict(query_or_url, guild_log)
 
     if data is None:
         raise NotFoundError(
@@ -386,11 +396,12 @@ def make_youtube_track(query_or_url: str) -> Track:
                  stream_url=stream_url)
 
 
-def make_spotify_track_from_search(query: str) -> Track:
+def make_spotify_track_from_search(query: str, guild_log: Logger) -> Track:
     """Construct a Spotify track instance from a search query.
 
     Args:
         query (str): Query string to submit to Spotify search.
+        guild_log (Logger): Guild-specific log to log to.
 
     Raises:
         NotFoundError: Failed to find a Spotify track with given query.
@@ -410,15 +421,17 @@ def make_spotify_track_from_search(query: str) -> Track:
             f"No Spotify track could be found with {query=}.") from None
 
     # Construct AudioSource with track attributes and stream URL
-    kwargs = _unpack_spotify_track(track) or _raise_stream_not_found(track)
+    kwargs = (_unpack_spotify_track(track, guild_log)
+              or _raise_stream_not_found(track))
     return Track(**kwargs)
 
 
-def make_spotify_track_from_url(url: str) -> Track:
+def make_spotify_track_from_url(url: str, guild_log: Logger) -> Track:
     """Construct a Spotify track instance from a valid track URL.
 
     Args:
         url (str): Full Spotify track URL.
+        guild_log (Logger): Guild-specific log to log to.
 
     Raises:
         NotFoundError: Failed to get a Spotify track from URL.
@@ -439,15 +452,17 @@ def make_spotify_track_from_url(url: str) -> Track:
         ) from None
 
     # Construct AudioSource with track attributes and stream URL
-    kwargs = _unpack_spotify_track(track) or _raise_stream_not_found(track)
+    kwargs = (_unpack_spotify_track(track, guild_log)
+              or _raise_stream_not_found(track))
     return Track(**kwargs)
 
 
-def make_soundcloud_track_from_url(url: str) -> Track:
+def make_soundcloud_track_from_url(url: str, guild_log: Logger) -> Track:
     """Construct a SoundCloud track instance from a valid permalink.
 
     Args:
         url (str): Full SoundCloud permalink to the track.
+        guild_log (Logger): Guild-specific log to log to.
 
     Raises:
         NotFoundError: Failed to get a SoundCloud track from URL.
@@ -465,7 +480,7 @@ def make_soundcloud_track_from_url(url: str) -> Track:
 
     # Assert that the result is a track
     if type(result) is not sclib.Track:
-        log.warning(
+        guild_log.warning(
             f"soundcloud.resolve({url=}) returns an instance of "
             f"type {type(result).__name__!r} instead of sclib.Track."
         )
@@ -491,9 +506,12 @@ def make_soundcloud_track_from_url(url: str) -> Track:
 
 async def _test() -> None:
     """Throwaway test code: python -m bot.commands.music.tracks"""
+    import logging
     soundcloud_url = "https://soundcloud.com/rarinmusic/gta"
     query = "https://open.spotify.com/track/1KxwZYyzWNyZSRyErj2ojT?si=01d847f2b4da4e49"
-    track = await Track.from_query(query, asyncio.get_event_loop())
+    track = await Track.from_query(query,
+                                   asyncio.get_event_loop(),
+                                   logging.getLogger())
     print(track.artist)
     print(track.collab)
     print(track.title)

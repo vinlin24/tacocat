@@ -15,6 +15,7 @@ from ...exceptions import InvariantError, NotApplicableError
 from ...logger import format_model, log
 from ...utils import has_humans, react_either
 from .config import MusicEmbed, MusicErrorEmbed
+from .logger import logs
 from .player import Player
 from .tracks import Platform
 
@@ -83,7 +84,6 @@ async def _join_channel(ctx: Context[MyBot],
         await channel.guild.change_voice_state(channel=channel,
                                                self_deaf=True)
 
-    log.debug(f"Successfully joined {format_model(channel)}.")
     return channel
 
 
@@ -181,6 +181,7 @@ class MusicCog(commands.Cog, name="Music"):
 
         # Pass to backend
         player = self.get_player(ctx)
+        player.log.debug(f"Successfully joined {format_model(channel)}.")
         await player.after_connect(ctx)
 
     @commands.hybrid_command(name="leave", aliases=["disconnect", "dc"], help="Disconnect bot from voice")
@@ -333,6 +334,7 @@ class MusicCog(commands.Cog, name="Music"):
 
         # Pass to backend
         player = self.get_player(ctx)
+        player.log.debug(f"Successfully joined {format_model(channel)}.")
         async with channel.typing():
             await player.play_track(ctx, query, p)
 

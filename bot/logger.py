@@ -22,41 +22,66 @@ from .config import (BOT_MODE, DISCORD_LOG_PATH, LOG_ALERT_LEVEL,
                      PROGRAM_LOG_DATEFMT, PROGRAM_LOG_FMT, PROGRAM_LOG_PATH,
                      PROJECT_NAME, BotMode)
 
+# Names to include for any cogs that define their own logger.py.
 __all__ = (
-    "log",
-    "discord_handler",
+    "set_up_logging",
+    "detail_call",
+    "format_model",
 )
 
-# ==================== PROGRAM LOGGER ==================== #
+# ==================== PROGRAM LOGGER TEMPLATE ==================== #
 
-# Expose program logger for imports
-log = logging.getLogger(PROJECT_NAME)
-"""Program logger singleton."""
+
+# Expose function so cogs can configure their own loggers.
+def set_up_logging(log_name: str, file_path: str) -> logging.Logger:
+    """Use program configuration to set up a specific logger.
+
+    Args:
+        log_name (str): Name of the logger to configure.
+        file_path (str): Absolute path to the log file that will serve
+        as the logger's file destination.
+
+    Returns:
+        logging.Logger: Configured log instance. Equivalent in memory
+        to `logging.getLogger(log_name)`.
+    """
+    formatter = logging.Formatter(
+        fmt=PROGRAM_LOG_FMT,
+        datefmt=PROGRAM_LOG_DATEFMT
+    )
+    # All program logs will share the same stream
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    # But make the .log file separable and configurable
+    file_handler = logging.FileHandler(
+        filename=file_path,
+        mode="at" if BOT_MODE is BotMode.PRODUCTION else "wt",
+        encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    specific_log = logging.getLogger(log_name)
+    specific_log.addHandler(file_handler)
+    specific_log.addHandler(stream_handler)
+
+    # By default, log everything
+    # You can use a custom /logs or online tools to parse the log files
+    specific_log.setLevel(logging.DEBUG)
+
+    specific_log.debug(f"Logging configured for log {log_name!r}.")
+    return specific_log
+
+
+# ==================== PROGRAM BASE LOGGER ==================== #
 
 # Custom logging level for important but non-error messages
 logging.addLevelName(LOG_ALERT_LEVEL, "ALERT")
 
-# Set up the program logger
-_file_handler = logging.FileHandler(
-    filename=PROGRAM_LOG_PATH,
-    mode="at" if BOT_MODE is BotMode.PRODUCTION else "wt",
-    encoding="utf-8"
-)
-_stream_handler = logging.StreamHandler()
-_formatter = logging.Formatter(
-    fmt=PROGRAM_LOG_FMT,
-    datefmt=PROGRAM_LOG_DATEFMT
-)
+# Expose program logger for imports
+log = set_up_logging(PROJECT_NAME, PROGRAM_LOG_PATH)
+"""Program base logger."""
 
-_file_handler.setFormatter(_formatter)
-_stream_handler.setFormatter(_formatter)
-log.addHandler(_file_handler)
-log.addHandler(_stream_handler)
-
-# By default, log everything
-# You can use a custom /logs or online tools to parse the log files
-log.setLevel(logging.DEBUG)
-log.debug("Program logging configured.")
+log.debug(f"Log {log.name!r} is the project base logger.")
 
 
 # ==================== discord.py LOGGER ==================== #
